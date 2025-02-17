@@ -74,15 +74,15 @@ class PipelineParams(ParamGroup):
 class OptimizationParams(ParamGroup):
     def __init__(self, parser):
         self.iterations = 30_000
-        self.position_lr_init = 0.00016
-        self.position_lr_final = 0.0000016
-        self.position_lr_delay_mult = 0.01
+        self.position_lr_init = 0.00016 #* 0.001 
+        self.position_lr_final = 0.0000016 #* 0.001
+        self.position_lr_delay_mult = 0.01 #* 0.001
         self.position_lr_max_steps = 30_000
-        self.feature_lr = 0.0025
-        self.opacity_lr = 0.025
-        self.scaling_lr = 0.005
-        self.rotation_lr = 0.001
-        self.exposure_lr_init = 0.01
+        self.feature_lr = 0.0025 #* 0.001
+        self.opacity_lr = 0.025 #* 0.001
+        self.scaling_lr = 0.005 #* 0.001
+        self.rotation_lr = 0.001 #* 0.001
+        self.exposure_lr_init = 0.001
         self.exposure_lr_final = 0.001
         self.exposure_lr_delay_steps = 0
         self.exposure_lr_delay_mult = 0.0
