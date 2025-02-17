@@ -31,9 +31,10 @@ class Camera(nn.Module):
         self.FoVx = FoVx
         self.FoVy = FoVy
         self.image_name = image_name
+
         self.fx = fov2focal(FoVx, resolution[0]) # for ray-splatting
         self.fy = fov2focal(FoVy, resolution[1])
-        self.cx = resolution[0] / 2
+        self.cx = resolution[0] / 2 # for ray-splatting
         self.cy = resolution[1] / 2
 
         try:
@@ -92,25 +93,31 @@ class Camera(nn.Module):
         self.full_proj_transform = (self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))).squeeze(0)
         self.camera_center = self.world_view_transform.inverse()[3, :3]
 
-        sampled_rays, tan_theta, tan_phi = self.fov_sample2ray(FoVx/2, FoVy/2, 5e-3)
+        # for ray-splatting start
+        sampled_rays, arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, 5e-3)
         self.sampled_rays = sampled_rays
-        self.omni_tan_theta = self.omni_map_z(torch.tan(tan_theta), torch.cos(tan_theta) + 1e-7)
-        self.omni_tan_theta = self.omni_tan_theta.cuda()
-        self.omni_tan_phi = self.omni_map_z(torch.tan(tan_phi), torch.cos(tan_phi) + 1e-7)
-        self.omni_tan_phi = self.omni_tan_phi.cuda()
+        cos_theta = torch.cos(arr_theta)
+        cos_phi = torch.cos(arr_phi)
+        
+        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).cuda()
+        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).cuda()
+        self.tan_theta = torch.tan(arr_theta).cuda()
+        self.tan_phi = torch.tan(arr_phi).cuda()
+        self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
+        self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
         
         # init_from_dataset() only
         if self.original_image is not None:
-            self.sampled_image, _ = self.project_to_fisheye(
+            self.sampled_image, _ = self.project_to_fovmap(
                 self.sampled_rays, 
                 self.original_image,  
                 self.fx, self.fy, self.cx, self.cy
                 )
-            self.sampled_image = self.sampled_image.reshape(-1, tan_phi.shape[0], tan_theta.shape[0])
+            self.sampled_image = self.sampled_image.reshape(-1, self.tan_phi.shape[0], self.tan_theta.shape[0])
             #self.sampled_depth = self.sampled_depth.reshape(-1, tan_phi.shape[0], tan_theta.shape[0])
 
     @staticmethod
-    def project_to_fisheye(sampled_rays, image, fx, fy, cx, cy, depth=None):
+    def project_to_fovmap(sampled_rays, image, fx, fy, cx, cy, depth=None):
         u = (sampled_rays[:, 0] / sampled_rays[:, 2]) * fx + cx
         v = (sampled_rays[:, 1] / sampled_rays[:, 2]) * fy + cy
         u, v = u.long(), v.long()
