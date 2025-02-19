@@ -39,6 +39,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         gaussians.restore(model_params, opt)
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
+    # bg_color = [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
     iter_start = torch.cuda.Event(enable_timing = True)
@@ -90,17 +91,28 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             pipe.debug = True
 
         bg = torch.rand((3), device="cuda") if opt.random_background else background
+        # bg = background
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
         # image, visibility_filter, radii = render_pkg["render"], render_pkg["visibility_filter"], render_pkg["radii"] # for ray-splatting
 
         # Loss
-        #gt_image = viewpoint_cam.original_image.cuda()
+        # gt_image = viewpoint_cam.original_image.cuda()
         gt_image = viewpoint_cam.sampled_image.cuda()
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
+
+        if iteration % 200 == 0:
+            import numpy as np
+            import cv2
+            sv = image.permute(1,2,0).detach().cpu().numpy()
+            sv = np.clip(sv, 0.0, 1.0)
+            print(sv.max(), sv.min())
+            sv = (sv * 255).astype(np.uint8)
+
+            cv2.imwrite(f'/home/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
 
         # Depth regularization
         Ll1depth_pure = 0.0
