@@ -100,6 +100,16 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
 
+        if iteration % 200 == 0:
+            import numpy as np
+            import cv2
+            sv = image.permute(1,2,0).detach().cpu().numpy()
+            sv = np.clip(sv, 0.0, 1.0)
+            print(sv.max(), sv.min())
+            sv = (sv * 255).astype(np.uint8)
+
+            cv2.imwrite(f'/home/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
+
         # Depth regularization
         Ll1depth_pure = 0.0
         if depth_l1_weight(iteration) > 0 and viewpoint_cam.depth_reliable:
