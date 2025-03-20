@@ -22,6 +22,10 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+import numpy as np
+import cv2
+import math
+from utils.graphics_utils import project_to_screen
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -29,6 +33,7 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+    os.makedirs('tmp', exist_ok=True)
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -79,7 +84,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Pick a random Camera
         if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()
+            viewpoint_stack = scene.getTrainCameras().copy()#[:1]
             viewpoint_indices = list(range(len(viewpoint_stack)))
         rand_idx = randint(0, len(viewpoint_indices) - 1)
         viewpoint_cam = viewpoint_stack.pop(rand_idx)
@@ -92,23 +97,21 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp)
-        image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
-
+        image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]   
+        
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
 
-        if iteration % 200 == 0:
-            import numpy as np
-            import cv2
+        if iteration % 400 == 0:
             sv = image.permute(1,2,0).detach().cpu().numpy()
             sv = np.clip(sv, 0.0, 1.0)
             print(sv.max(), sv.min())
             sv = (sv * 255).astype(np.uint8)
 
-            cv2.imwrite(f'/home/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
+            cv2.imwrite(f'./tmp/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
 
         # Depth regularization
         Ll1depth_pure = 0.0
@@ -145,6 +148,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
+            # print(viewspace_point_tensor.shape)
+            # print(viewspace_point_tensor.grad.shape)
+            # print("--")
+            # viewspace_point_tensor.grad = viewspace_point_tensor.grad /  viewspace_point_tensor[:, 2:] * viewpoint_cam.FoVx
+            #viewspace_point_tensor.grad = viewspace_point_tensor.grad * viewspace_point_tensor[:, 2:] /10
+            #print(viewspace_point_tensor.grad.max(), viewspace_point_tensor.grad.mean())
             # Densification
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
@@ -241,7 +250,8 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    #parser.add_argument("--test_iterations", nargs="+", type=int, default=[20, 50, 80, 120, 150, 180, 200, 300, 400, 500, 1000, 1200, 1500, 2000, 2200, 2500, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7_000, 7500, 8000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[500, 1200, 2000, 2800, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7_000, 7500, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 18000, 21000, 24000, 27000, 29000, 30_000])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument('--disable_viewer', action='store_true', default=False)

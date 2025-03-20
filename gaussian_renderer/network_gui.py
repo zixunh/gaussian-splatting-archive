@@ -22,6 +22,7 @@ conn = None
 addr = None
 
 listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
 
 def init(wish_host, wish_port):
     global host, port, listener

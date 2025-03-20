@@ -87,6 +87,64 @@ class Camera(nn.Module):
         self.projection_matrix = getProjectionMatrix(znear=self.znear, zfar=self.zfar, fovX=self.FoVx, fovY=self.FoVy).transpose(0,1).cuda()
         self.full_proj_transform = (self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))).squeeze(0)
         self.camera_center = self.world_view_transform.inverse()[3, :3]
+
+        # for ray-splatting start
+    #     sampled_rays, arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, 5e-3)
+    #     self.sampled_rays = sampled_rays
+    #     cos_theta = torch.cos(arr_theta)
+    #     cos_phi = torch.cos(arr_phi)
+        
+    #     cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).cuda()
+    #     cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).cuda()
+    #     self.tan_theta = torch.tan(arr_theta).cuda()
+    #     self.tan_phi = torch.tan(arr_phi).cuda()
+    #     self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
+    #     self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
+        
+    #     # init_from_dataset() only
+    #     if self.original_image is not None:
+    #         self.sampled_image, _ = self.project_to_fovmap(
+    #             self.sampled_rays, 
+    #             self.original_image,  
+    #             self.fx, self.fy, self.cx, self.cy
+    #             )
+    #         self.sampled_image = self.sampled_image.reshape(-1, self.tan_phi.shape[0], self.tan_theta.shape[0])
+
+    # @staticmethod
+    # def project_to_fovmap(sampled_rays, image, fx, fy, cx, cy, depth=None):
+    #     u = (sampled_rays[:, 0] / sampled_rays[:, 2]) * fx + cx
+    #     v = (sampled_rays[:, 1] / sampled_rays[:, 2]) * fy + cy
+    #     u, v = u.long(), v.long()
+    #     sampled_image = image[:, v, u]
+    #     sampled_depth = None
+    #     if depth is not None:
+    #         sampled_depth = depth[v, u]
+        
+    #     return sampled_image, sampled_depth
+
+    # @staticmethod
+    # def fov_sample2ray(fovx, fovy, interval):
+    #     theta_arr = torch.arange(interval / 2, fovx, interval).float()
+    #     theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
+    #     phi_arr = torch.arange(interval / 2, fovy, interval).float()
+    #     phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
+
+    #     sin_t = torch.sin(theta_arr)
+    #     cos_t = torch.cos(theta_arr)
+    #     sin_p = torch.sin(phi_arr).unsqueeze(1)
+    #     cos_p = torch.cos(phi_arr).unsqueeze(1)
+
+    #     r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
+    #     x = (sin_t * cos_p) / r
+    #     y = (cos_t * sin_p) / r
+    #     z = (cos_t * cos_p) / r
+    #     ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).to('cuda').flatten(0,-2)
+
+    #     return ray, theta_arr, phi_arr
+
+    # @staticmethod
+    # def omni_map_z(m, z, xi=0.0): #1.1
+    #     return m / (1+xi*(z/(torch.abs(z)))*(1+m**2)**0.5)
         
 class MiniCam:
     def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):

@@ -142,6 +142,15 @@ class GaussianModel:
 
     def create_from_pcd(self, pcd : BasicPointCloud, cam_infos : int, spatial_lr_scale : float):
         self.spatial_lr_scale = spatial_lr_scale
+        # arr1 = np.asarray(pcd.points)
+        # norm = np.linalg.norm(arr1, axis=1)
+        # mean, std = norm.mean(), norm.std()
+        # mask = norm > mean + 1.5 * std
+        # print("nums of points: ", mask.sum())
+        
+        # fused_point_cloud = torch.tensor(np.asarray(pcd.points)[mask]).float().cuda()
+        # fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)[mask]).float().cuda())
+
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
@@ -150,6 +159,7 @@ class GaussianModel:
 
         print("Number of points at initialisation : ", fused_point_cloud.shape[0])
 
+        #dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)[mask]).float().cuda()), 0.0000001)
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
@@ -448,5 +458,9 @@ class GaussianModel:
         torch.cuda.empty_cache()
 
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
-        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
+        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:3], dim=-1, keepdim=True)
+        self.denom[update_filter] += 1
+    
+    def add_densification_stats_direct(self, grad, update_filter):
+        self.xyz_gradient_accum[update_filter] += torch.norm(grad[update_filter,:2], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
