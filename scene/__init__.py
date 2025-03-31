@@ -16,7 +16,33 @@ from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
-from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
+from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON, cameraList_from_camInfos_fisheye
+from colorama import Back, Fore, Style
+
+def check_colmap(args):
+    return os.path.exists(os.path.join(args.source_path, 'sparse/0'))
+
+def check_blender(args):
+    return os.path.exists(os.path.join(args.source_path, "transforms.json")) or os.path.exists(os.path.join(args.source_path, "transforms_train.json"))
+
+def check_mvl(args):
+    return os.path.exists(os.path.join(args.source_path, "img"))
+
+def check_scannetpp(args):
+    return os.path.exists(os.path.join(args.source_path, 'resized_images'))
+
+def dataset_selector(args):
+    dataset = args.dataset
+    if check_scannetpp(args) and (dataset == "AUTO" or dataset == "SCANNETPP"):
+        return "Scannetpp"
+    if check_colmap(args) and (dataset == "AUTO" or dataset == "COLMAP"):
+        return "Colmap"
+    if check_blender(args) and (dataset == "AUTO" or dataset == "BLENDER"):
+        return "Blender"
+    if check_scannetpp(args) and (dataset == "AUTO" or dataset == "MVL"):
+        return "Mvl"
+    assert False, "Could not recognize scene type!"
+
 
 class Scene:
 
@@ -39,14 +65,17 @@ class Scene:
 
         self.train_cameras = {}
         self.test_cameras = {}
+        dataset = dataset_selector(args)
+        print(Fore.YELLOW + f"Assuming {dataset} data set!" + Style.RESET_ALL)
+        scene_info = sceneLoadTypeCallbacks[dataset](args)
 
-        if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval, args.train_test_exp)
-        elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
-            print("Found transforms_train.json file, assuming Blender data set!")
-            scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.depths, args.eval)
-        else:
-            assert False, "Could not recognize scene type!"
+        # if os.path.exists(os.path.join(args.source_path, "sparse")):
+        #     scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval, args.train_test_exp)
+        # elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
+        #     print("Found transforms_train.json file, assuming Blender data set!")
+        #     scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.depths, args.eval)
+        # else:
+        #     assert False, "Could not recognize scene type!"
 
         if not self.loaded_iter:
             with open(scene_info.ply_path, 'rb') as src_file, open(os.path.join(self.model_path, "input.ply") , 'wb') as dest_file:
@@ -68,12 +97,18 @@ class Scene:
 
         self.cameras_extent = scene_info.nerf_normalization["radius"]
 
+        # for resolution_scale in resolution_scales:
+        #     print("Loading Training Cameras")
+        #     self.train_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.train_cameras, resolution_scale, args, scene_info.is_nerf_synthetic, False)
+        #     print("Loading Test Cameras")
+        #     self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args, scene_info.is_nerf_synthetic, True)
+
         for resolution_scale in resolution_scales:
             print("Loading Training Cameras")
-            self.train_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.train_cameras, resolution_scale, args, scene_info.is_nerf_synthetic, False)
+            self.train_cameras[resolution_scale] = cameraList_from_camInfos_fisheye(scene_info.train_cameras, resolution_scale, False, False, args)
             print("Loading Test Cameras")
-            self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args, scene_info.is_nerf_synthetic, True)
-
+            self.test_cameras[resolution_scale] = cameraList_from_camInfos_fisheye(scene_info.test_cameras, resolution_scale, False, True, args)
+        
         if self.loaded_iter:
             self.gaussians.load_ply(os.path.join(self.model_path,
                                                            "point_cloud",

@@ -34,15 +34,24 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
 
     scaling_modifier = scaling_modifier
+    # print("here")
+    # print(int(viewpoint_camera.omni_tan_phi.shape[0]))
+    # print(int(viewpoint_camera.omni_tan_theta.shape[0]))
     raster_settings = GaussianRasterizationSettings(
-        image_height=int(viewpoint_camera.image_height),
-        image_width=int(viewpoint_camera.image_width),
+        # image_height=int(viewpoint_camera.image_height),
+        # image_width=int(viewpoint_camera.image_width),
+        image_height=int(viewpoint_camera.omni_tan_phi.shape[0]), # for ray-splatting
+        image_width=int(viewpoint_camera.omni_tan_theta.shape[0]), # for ray-splatting
         tanfovx=tanfovx,
         tanfovy=tanfovy,
         bg=bg_color,
         scale_modifier=scaling_modifier,
         viewmatrix=viewpoint_camera.world_view_transform,
         projmatrix=viewpoint_camera.full_proj_transform,
+        omni_tan_theta=viewpoint_camera.omni_tan_theta, # for ray-splatting
+        omni_tan_phi=viewpoint_camera.omni_tan_phi, # for ray-splatting
+        tan_theta=viewpoint_camera.tan_theta, # for ray-splatting
+        tan_phi=viewpoint_camera.tan_phi, # for ray-splatting
         sh_degree=pc.active_sh_degree,
         campos=viewpoint_camera.camera_center,
         prefiltered=False,

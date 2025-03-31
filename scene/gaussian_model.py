@@ -152,6 +152,8 @@ class GaussianModel:
         # fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)[mask]).float().cuda())
 
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
+        print("j",fused_point_cloud[:,2].mean())
+        exit()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
         features[:, :3, 0 ] = fused_color
@@ -254,6 +256,7 @@ class GaussianModel:
 
     def reset_opacity(self):
         opacities_new = self.inverse_opacity_activation(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
+        print("jh", opacities_new.max(), opacities_new.min(), opacities_new.mean())
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 

@@ -76,6 +76,9 @@ def fov2focal(fov, pixels):
 def focal2fov(focal, pixels):
     return 2*math.atan(pixels/(2*focal))
 
+def focal2fov2(focal, pixels):
+    return pixels / focal
+
 def clamp_projection(t, tan_fovx, tan_fovy):
     """
     Given a transformed point t, clamps its x and y components.

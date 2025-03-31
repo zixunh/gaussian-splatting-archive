@@ -15,7 +15,7 @@ from PIL import Image
 from typing import NamedTuple
 from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec2rotmat, \
     read_extrinsics_binary, read_intrinsics_binary, read_points3D_binary, read_points3D_text
-from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
+from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal, focal2fov2
 import numpy as np
 import json
 from pathlib import Path
@@ -37,6 +37,22 @@ class CameraInfo(NamedTuple):
     height: int
     is_test: bool
 
+class CameraInfo_fisheye(NamedTuple):
+    uid: int
+    R: np.array
+    T: np.array
+    FovY: np.array
+    FovX: np.array
+    image: np.array
+    image_path: str
+    image_name: str
+    width: int
+    height: int
+    depth: np.array = None
+    depth_params: dict = {}
+    depth_path: str = ""
+    is_test: bool = False
+
 class SceneInfo(NamedTuple):
     point_cloud: BasicPointCloud
     train_cameras: list
@@ -44,6 +60,13 @@ class SceneInfo(NamedTuple):
     nerf_normalization: dict
     ply_path: str
     is_nerf_synthetic: bool
+
+class SceneInfo_fisheye(NamedTuple):
+    point_cloud: BasicPointCloud
+    train_cameras: list
+    test_cameras: list
+    nerf_normalization: dict
+    ply_path: str
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
@@ -225,6 +248,115 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
                            is_nerf_synthetic=False)
     return scene_info
 
+def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, override_intr=None):
+    cam_infos = []
+    for idx, key in enumerate(cam_extrinsics):
+        sys.stdout.write('\r')
+        # the exact output you're looking for:
+        sys.stdout.write("Reading camera {}/{}".format(idx+1, len(cam_extrinsics)))
+        sys.stdout.flush()
+
+        extr = cam_extrinsics[key]
+        intr = cam_intrinsics[extr.camera_id]
+        height = intr.height
+        width = intr.width
+
+        if override_intr is not None: #SCANNET++
+            intr.params[0] = override_intr[0]
+            intr.params[1] = override_intr[1]
+
+        uid = intr.id
+        R = np.transpose(qvec2rotmat(extr.qvec))
+        T = np.array(extr.tvec)
+
+        if intr.model=="SIMPLE_PINHOLE":
+            focal_length_x = intr.params[0]
+            FovY = focal2fov(focal_length_x, height)
+            FovX = focal2fov(focal_length_x, width)
+        elif intr.model=="PINHOLE":
+            focal_length_x = intr.params[0]
+            focal_length_y = intr.params[1]
+            FovY = focal2fov(focal_length_y, height)
+            FovX = focal2fov(focal_length_x, width)
+        elif intr.model=="OPENCV_FISHEYE": #SCANNET++
+            focal_length_x = intr.params[0]
+            focal_length_y = intr.params[1]
+            FovY = focal2fov2(focal_length_y, height) #/ 0.72
+            FovX = focal2fov2(focal_length_x, width) #/ 0.72
+            print("loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
+            #print("here", FovY, FovX)
+        else:
+            assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE, SIMPLE_PINHOLE, OPENCV_FISHEYE cameras) supported!"
+
+        image_path = os.path.join(images_folder, os.path.basename(extr.name))
+        image_name = os.path.basename(image_path).split(".")[0]
+        if not os.path.exists(image_path):
+            image_path = image_path.replace(".png", ".JPG") # fix for loading zhita_5k dataset
+        image = Image.open(image_path)
+        cam_info = CameraInfo_fisheye(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                              image_path=image_path, image_name=image_name, width=width, height=height)
+        cam_infos.append(cam_info)
+    sys.stdout.write('\n')
+    return cam_infos
+
+
+def readColmapSceneInfo_fisheye(args, override_intr=None):
+    
+    ################
+    path = args.source_path
+    images = args.images
+    eval = args.eval
+    colmap_dir = "sparse/0" if args.colmaps is None else args.colmaps
+    llffhold = 8
+    ################
+
+    try:
+        cameras_extrinsic_file = os.path.join(path, colmap_dir, "images.bin")
+        cameras_intrinsic_file = os.path.join(path, colmap_dir, "cameras.bin")
+        cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
+    except:
+        cameras_extrinsic_file = os.path.join(path, colmap_dir, "images.txt")
+        cameras_intrinsic_file = os.path.join(path, colmap_dir, "cameras_fish.txt")
+        cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
+
+    reading_dir = "images" if images == None else images
+    cam_infos_unsorted = readColmapCameras_fisheye(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), override_intr=override_intr)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
+
+    eval = True
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    ply_path = os.path.join(path, f"{colmap_dir}/points3D.ply")
+    bin_path = os.path.join(path, f"{colmap_dir}/points3D.bin")
+    txt_path = os.path.join(path, f"{colmap_dir}/points3D.txt")
+    if not os.path.exists(ply_path):
+        print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
+        try:
+            xyz, rgb, _ = read_points3D_binary(bin_path)
+        except:
+            xyz, rgb, _ = read_points3D_text(txt_path)
+        storePly(ply_path, xyz, rgb)
+    try:
+        pcd = fetchPly(ply_path)
+    except:
+        pcd = None
+
+    scene_info = SceneInfo_fisheye(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 def readCamerasFromTransforms(path, transformsfile, depths_folder, white_background, is_test, extension=".png"):
     cam_infos = []
 
@@ -309,7 +441,26 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
                            is_nerf_synthetic=True)
     return scene_info
 
+def readScannetppInfo(args):
+    args.colmaps = 'colmap'
+    if args.camera_model == "PINHOLE":
+        args.images = 'undistorted_images'
+    if args.camera_model == "FISHEYE":
+        args.images = 'image_undistorted_fisheye_fov7'
+        print("Reading: ", args.images)
+
+    override_intr = None
+    path = args.source_path
+    if args.camera_model == "PINHOLE":
+        with open(os.path.join(os.path.join(path, 'nerfstudio'),'transforms_undistorted.json')) as json_file:
+            contents = json.load(json_file)
+            fl_x = contents["fl_x"]
+            fl_y = contents["fl_y"]
+        override_intr = (fl_x, fl_y)
+    return readColmapSceneInfo_fisheye(args, override_intr)
+
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
-    "Blender" : readNerfSyntheticInfo
+    "Blender" : readNerfSyntheticInfo,
+    "Scannetpp" : readScannetppInfo
 }
