@@ -248,6 +248,7 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
                            is_nerf_synthetic=False)
     return scene_info
 
+# for ray-splatting
 def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, override_intr=None):
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
@@ -281,10 +282,11 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, ove
         elif intr.model=="OPENCV_FISHEYE": #SCANNET++
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
+            # for ray-splatting start
+            # Change the fov to match the undistorted image
             FovY = focal2fov2(focal_length_y, height) #/ 0.72
             FovX = focal2fov2(focal_length_x, width) #/ 0.72
             print("loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
-            #print("here", FovY, FovX)
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE, SIMPLE_PINHOLE, OPENCV_FISHEYE cameras) supported!"
 
@@ -299,7 +301,7 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, ove
     sys.stdout.write('\n')
     return cam_infos
 
-
+# for ray-splatting
 def readColmapSceneInfo_fisheye(args, override_intr=None):
     
     ################
@@ -441,6 +443,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
                            is_nerf_synthetic=True)
     return scene_info
 
+# for ray-splatting
 def readScannetppInfo(args):
     args.colmaps = 'colmap'
     if args.camera_model == "PINHOLE":

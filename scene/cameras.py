@@ -32,11 +32,6 @@ class Camera(nn.Module):
         self.FoVy = FoVy
         self.image_name = image_name
 
-        # self.fx = fov2focal(FoVx, resolution[0]) # for ray-splatting
-        # self.fy = fov2focal(FoVy, resolution[1])
-        # self.cx = resolution[0] / 2 # for ray-splatting
-        # self.cy = resolution[1] / 2
-
         try:
             self.data_device = torch.device(data_device)
         except Exception as e:
@@ -94,6 +89,7 @@ class Camera(nn.Module):
         self.camera_center = self.world_view_transform.inverse()[3, :3]
 
         # for ray-splatting start
+        # Change the step adjust resolution
         sampled_rays, arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, 5e-3)
         self.sampled_rays = sampled_rays
         cos_theta = torch.cos(arr_theta)
@@ -106,14 +102,6 @@ class Camera(nn.Module):
         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
         self.sampled_image = self.original_image
-        # init_from_dataset() only
-        # if self.original_image is not None:
-        #     self.sampled_image, _ = self.project_to_fovmap_scannetpp(
-        #         self.sampled_rays, 
-        #         self.original_image,  
-        #         self.fx, self.fy, self.cx, self.cy
-        #         )
-        #     self.sampled_image = self.sampled_image.reshape(-1, self.tan_phi.shape[0], self.tan_theta.shape[0])
 
     @staticmethod
     def project_to_fovmap(sampled_rays, image, fx, fy, cx, cy, depth=None):

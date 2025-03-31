@@ -51,7 +51,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     depth_l1_weight = get_expon_lr_func(opt.depth_l1_weight_init, opt.depth_l1_weight_final, max_steps=opt.iterations)
 
-    viewpoint_stack = scene.getTrainCameras().copy()#[:20]
+    viewpoint_stack = scene.getTrainCameras().copy()
     viewpoint_indices = list(range(len(viewpoint_stack)))
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
@@ -88,7 +88,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Pick a random Camera
         if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()#[:20]
+            viewpoint_stack = scene.getTrainCameras().copy()
             viewpoint_indices = list(range(len(viewpoint_stack)))
         rand_idx = randint(0, len(viewpoint_indices) - 1)
         viewpoint_cam = viewpoint_stack.pop(rand_idx)
@@ -105,7 +105,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         image[valid_mask == 0] = 0.0
         # Loss
         gt_image = viewpoint_cam.sampled_image.cuda()
-        #gt_image = viewpoint_cam.sampled_image.cuda()
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
@@ -113,9 +112,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 500 == 0:
             sv = image.permute(1,2,0).detach().cpu().numpy()
             sv = np.clip(sv, 0.0, 1.0)
-            print(sv.max(), sv.min())
             sv = (sv * 255).astype(np.uint8)
-
             cv2.imwrite(f'./tmp/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
 
         # Depth regularization
