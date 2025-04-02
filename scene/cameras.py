@@ -28,8 +28,8 @@ class Camera(nn.Module):
         self.colmap_id = colmap_id
         self.R = R
         self.T = T
-        self.FoVx = FoVx
-        self.FoVy = FoVy
+        self.FoVx = FoVx.astype(np.float64)
+        self.FoVy = FoVy.astype(np.float64)
         self.image_name = image_name
 
         try:
@@ -99,8 +99,8 @@ class Camera(nn.Module):
         cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).cuda()
         self.tan_theta = torch.tan(arr_theta).cuda()
         self.tan_phi = torch.tan(arr_phi).cuda()
-        self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
-        self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
+        self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
+        self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
         self.sampled_image = self.original_image
 
     @staticmethod
@@ -129,9 +129,9 @@ class Camera(nn.Module):
 
     @staticmethod
     def fov_sample2ray(fovx, fovy, interval):
-        theta_arr = torch.arange(interval / 2, fovx, interval).float()
+        theta_arr = torch.arange(interval / 2, fovx, interval, dtype=torch.float64)#.float()
         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
-        phi_arr = torch.arange(interval / 2, fovy, interval).float()
+        phi_arr = torch.arange(interval / 2, fovy, interval, dtype=torch.float64)#.float()
         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
 
         sin_t = torch.sin(theta_arr)
@@ -145,7 +145,7 @@ class Camera(nn.Module):
         z = (cos_t * cos_p) / r
         ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).to('cuda').flatten(0,-2)
 
-        return ray, theta_arr, phi_arr
+        return ray.float(), theta_arr.float(), phi_arr.float()
 
     @staticmethod
     def omni_map_z(m, z, xi=0.0): #1.1
@@ -163,4 +163,39 @@ class MiniCam:
         self.full_proj_transform = full_proj_transform
         view_inv = torch.inverse(self.world_view_transform)
         self.camera_center = view_inv[3][:3]
+        _, arr_theta, arr_phi = self.fov_sample2ray(self.FoVx/2, self.FoVy/2, 5e-3)
+        
+        cos_theta = torch.cos(arr_theta)
+        cos_phi = torch.cos(arr_phi)
+        
+        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).cuda()
+        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).cuda()
+        self.tan_theta = torch.tan(arr_theta).cuda()
+        self.tan_phi = torch.tan(arr_phi).cuda()
+        self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
+        self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
+
+    @staticmethod
+    def fov_sample2ray(fovx, fovy, interval):
+        theta_arr = torch.arange(interval / 2, fovx, interval, dtype=torch.float64)
+        theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
+        phi_arr = torch.arange(interval / 2, fovy, interval, dtype=torch.float64)
+        phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
+
+        sin_t = torch.sin(theta_arr)
+        cos_t = torch.cos(theta_arr)
+        sin_p = torch.sin(phi_arr).unsqueeze(1)
+        cos_p = torch.cos(phi_arr).unsqueeze(1)
+
+        r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
+        x = (sin_t * cos_p) / r
+        y = (cos_t * sin_p) / r
+        z = (cos_t * cos_p) / r
+        ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).to('cuda').flatten(0,-2)
+
+        return ray.float(), theta_arr.float(), phi_arr.float()
+
+    @staticmethod
+    def omni_map_z(m, z, xi=0.0): #1.1
+        return m / (1+xi*(z/(torch.abs(z)))*(1+m**2)**0.5)
 
