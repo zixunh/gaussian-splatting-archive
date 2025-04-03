@@ -32,12 +32,16 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, fov_mod, sample_step, mask_path):
     os.makedirs('tmp', exist_ok=True)
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
+
+    dataset.fov_mod = fov_mod
+    dataset.sample_step = sample_step
     scene = Scene(dataset, gaussians, shuffle=False)
+
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -56,7 +60,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
 
-    mask_path = './datasets/scannetpp_data1/0a5c013435/dslr/image_undistorted_fisheye_fov7'
+    # mask_path = '/media/scannetpp/0a5c013435/dslr/image_undistorted_fisheye_fov7'
     valid_mask = cv2.imread(mask_path + "/fov_0.75_step_2e-3_mask.png", cv2.IMREAD_GRAYSCALE)
     valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)
     valid_mask = torch.tensor(valid_mask)
@@ -256,6 +260,9 @@ if __name__ == "__main__":
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--mask_path", type=str, default = "/media/scannetpp/0a5c013435/dslr/image_undistorted_fisheye_fov7")
+    parser.add_argument("--sample_step", type=float, default = 2e-3)
+    parser.add_argument("--fov_mod", type=float, default = 1.3)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -268,7 +275,8 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
+             args.fov_mod,  args.sample_step, args.mask_path)
 
     # All done
     print("\nTraining complete.")

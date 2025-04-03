@@ -73,11 +73,11 @@ def colmap_main(args):
     cx = params[2]
     cy = params[3]
 
-    FoVx = focal2halffov2(fx, width) 
-    FoVy = focal2halffov2(fy, height) 
+    FoVx = focal2halffov2(fx, width) * args.fov_mod
+    FoVy = focal2halffov2(fy, height) * args.fov_mod
     print("FOVx in deg: ", 2 * FoVx * 180 / np.pi)
     print("FOVy in deg: ", 2 * FoVy * 180 / np.pi)
-    tan_theta, tan_phi = fov2tan(FoVx, FoVy, 5e-3)
+    tan_theta, tan_phi = fov2tan(FoVx, FoVy, args.step)
     
     distortion_params = params[4:]
     kk = distortion_params
@@ -152,8 +152,10 @@ def colmap_main(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument('--path', type=str, default="/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp_data1/0a5c013435/dslr/")
+    parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")
     parser.add_argument('--src', type=str, default="resized_images")
     parser.add_argument('--dst', type=str, default="image_undistorted_fisheye_fov7")
+    parser.add_argument('--step', type=float, default=2e-3)
+    parser.add_argument('--fov_mod', type=float, default=1.3)
     args = parser.parse_args()
     colmap_main(args)

@@ -18,7 +18,7 @@ import cv2
 
 class Camera(nn.Module):
     def __init__(self, resolution, colmap_id, R, T, FoVx, FoVy, depth_params, image, invdepthmap,
-                 image_name, uid,
+                 image_name, uid, step,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
                  train_test_exp = False, is_test_dataset = False, is_test_view = False
                  ):
@@ -90,7 +90,7 @@ class Camera(nn.Module):
 
         # for ray-splatting start
         # Change the step adjust resolution
-        sampled_rays, arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, 5e-3)
+        sampled_rays, arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, step)
         self.sampled_rays = sampled_rays
         cos_theta = torch.cos(arr_theta)
         cos_phi = torch.cos(arr_phi)
@@ -152,7 +152,7 @@ class Camera(nn.Module):
         return m / (1+xi*(z/(torch.abs(z)))*(1+m**2)**0.5)
         
 class MiniCam:
-    def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):
+    def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform, sample_step):
         self.image_width = width
         self.image_height = height    
         self.FoVy = fovy
@@ -163,7 +163,7 @@ class MiniCam:
         self.full_proj_transform = full_proj_transform
         view_inv = torch.inverse(self.world_view_transform)
         self.camera_center = view_inv[3][:3]
-        _, arr_theta, arr_phi = self.fov_sample2ray(self.FoVx/2, self.FoVy/2, 5e-3)
+        _, arr_theta, arr_phi = self.fov_sample2ray(self.FoVx/2, self.FoVy/2, sample_step)
         
         cos_theta = torch.cos(arr_theta)
         cos_phi = torch.cos(arr_phi)
