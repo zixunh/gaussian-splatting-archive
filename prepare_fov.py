@@ -8,6 +8,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from utils.graphics_utils import focal2fov
 import torch
+import shutil
 
 def psnr(img1, img2):
     mse = np.mean((img1 - img2) ** 2)
@@ -59,6 +60,41 @@ def fov2tan(fovx, fovy, interval):
 
 def focal2halffov2(focal, pixels):
     return pixels / 2 / focal
+
+def prepare_sibr_cfg(args):
+    root_dir = args.path
+    sibr_cfg_dir = Path(root_dir) / "colmap" / "stereo" / "sparse"
+
+    cameras_txt = os.path.join(root_dir, "colmap", "cameras.txt")
+    images_txt = os.path.join(root_dir, "colmap", "images.txt")
+    points_txt = os.path.join(root_dir, "colmap", "points3D.txt")
+    points_ply = os.path.join(root_dir, "colmap", "points3D.ply")
+    cameras_fish_txt = os.path.join(root_dir, "colmap", "cameras_fish.txt")
+
+    if not os.path.exists(cameras_txt):
+        raise FileNotFoundError(f"Source file not found: {cameras_txt}")
+    if not os.path.exists(cameras_fish_txt):
+        shutil.copy2(cameras_txt, cameras_fish_txt)
+
+    # Replace "OPENCV_FISHEYE" with "OPENCV" in cameras.txt
+    with open(cameras_txt, "r") as f:
+        content = f.read().replace("OPENCV_FISHEYE", "OPENCV")
+    # Save the modified version in the same directory
+    with open(cameras_txt, "w") as f:
+        f.write(content)
+    print("Replace 'OPENCV_FISHEYE' with 'OPENCV' in cameras.txt")
+    
+    # Ensure sibr_cfg_dir exists
+    sibr_cfg_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy cameras.txt to sibr_cfg_dir
+    shutil.copy2(cameras_txt, sibr_cfg_dir / "cameras.txt")
+    shutil.copy2(images_txt, sibr_cfg_dir / "images.txt")
+    shutil.copy2(points_txt, sibr_cfg_dir / "points3D.txt")
+    shutil.copy2(points_ply, sibr_cfg_dir / "points3D.ply")
+    print(f"Prepare directory: {sibr_cfg_dir} for sibr online rendering.\n")
+    
+
 
 def colmap_main(args):
     root_dir = args.path
@@ -158,4 +194,5 @@ if __name__ == "__main__":
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
     args = parser.parse_args()
+    prepare_sibr_cfg(args)
     colmap_main(args)

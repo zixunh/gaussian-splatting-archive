@@ -55,11 +55,12 @@ def send(message_bytes, verify):
     conn.sendall(len(verify).to_bytes(4, 'little'))
     conn.sendall(bytes(verify, 'ascii'))
 
-def receive():
+def receive(extra_params):
     message = read()
 
     width = message["resolution_x"]
     height = message["resolution_y"]
+    step = extra_params["sample_step"]
 
     if width != 0 and height != 0:
         try:
@@ -77,11 +78,11 @@ def receive():
             world_view_transform[:,2] = -world_view_transform[:,2]
             full_proj_transform = torch.reshape(torch.tensor(message["view_projection_matrix"]), (4, 4)).cuda()
             full_proj_transform[:,1] = -full_proj_transform[:,1]
-            custom_cam = MiniCam(width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform)
+            custom_cam = MiniCam(width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform, step)
         except Exception as e:
             print("")
             traceback.print_exc()
             raise e
-        return custom_cam, do_training, do_shs_python, do_rot_scale_python, keep_alive, scaling_modifier
+        return custom_cam, do_training, do_shs_python, do_rot_scale_python, keep_alive, scaling_modifier, width, height
     else:
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
