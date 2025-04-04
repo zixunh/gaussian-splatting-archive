@@ -6,8 +6,8 @@ import cv2
 from tqdm import tqdm
 from pathlib import Path
 from argparse import ArgumentParser
-from utils.graphics_utils import focal2fov
-import torch
+# from utils.graphics_utils import focal2fov
+# import torch
 import shutil
 
 def psnr(img1, img2):
@@ -50,13 +50,13 @@ def fov2tan(fovx, fovy, interval):
     tan_p = sin_p / cos_p
     return tan_t, tan_p
 
-    r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
-    x = (sin_t * cos_p) / r
-    y = (cos_t * sin_p) / r
-    z = (cos_t * cos_p) / r
-    ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).flatten(0,-2)
+    # r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
+    # x = (sin_t * cos_p) / r
+    # y = (cos_t * sin_p) / r
+    # z = (cos_t * cos_p) / r
+    # ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).flatten(0,-2)
 
-    return ray, theta_arr, phi_arr
+    # return ray, theta_arr, phi_arr
 
 def focal2halffov2(focal, pixels):
     return pixels / 2 / focal
@@ -128,7 +128,7 @@ def colmap_main(args):
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
     valid_mask = (valid_mask).astype(np.uint8)
-    out_image_path = Path(out_image_dir) / "fov_0.75_step_2e-3_mask.png"
+    out_image_path = Path(out_image_dir) / args.mask_dst
     cv2.imwrite(str(out_image_path), valid_mask * 255)
 
     u, v = u.astype(np.float32), v.astype(np.float32)
@@ -191,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")
     parser.add_argument('--src', type=str, default="resized_images")
     parser.add_argument('--dst', type=str, default="image_undistorted_fisheye_fov7")
+    parser.add_argument('--mask_dst', type=str, default="fov_0.75_step_2e-3_mask.png")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
     args = parser.parse_args()

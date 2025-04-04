@@ -24,8 +24,8 @@ from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 import numpy as np
 import cv2
-import math
-from utils.graphics_utils import project_to_screen
+# import math
+# from utils.graphics_utils import project_to_screen
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -61,7 +61,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     ema_Ll1depth_for_log = 0.0
 
     # mask_path = '/media/scannetpp/0a5c013435/dslr/image_undistorted_fisheye_fov7'
-    valid_mask = cv2.imread(mask_path + "/fov_0.75_step_2e-3_mask.png", cv2.IMREAD_GRAYSCALE)
+    # valid_mask = cv2.imread(mask_path + "/fov_0.75_step_2e-3_mask.png", cv2.IMREAD_GRAYSCALE)
+    print("mask_path:", mask_path)
+    valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)
     valid_mask = torch.tensor(valid_mask)
 
@@ -261,7 +263,7 @@ if __name__ == "__main__":
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
-    parser.add_argument("--mask_path", type=str, default = "/media/scannetpp/0a5c013435/dslr/image_undistorted_fisheye_fov7")
+    parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = 2e-3)
     parser.add_argument("--fov_mod", type=float, default = 1.3)
     args = parser.parse_args(sys.argv[1:])
