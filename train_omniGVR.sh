@@ -4,8 +4,6 @@ PREPROCESSED_FN=image_undistorted_fisheye_fov7
 STEP=5e-3
 FOVMOD=1.1
 
-cd ${baseline}/omni-gvr
-
 python prepare_fov.py --path "$DATASET_DIR" --dst "$PREPROCESSED_FN" --step $STEP --fov_mod $FOVMOD
 
 python train.py -s "$DATASET_DIR" -m output/scannetpp/0a5c013435 \
