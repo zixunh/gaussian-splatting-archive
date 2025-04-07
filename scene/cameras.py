@@ -163,6 +163,7 @@ class MiniCam:
         self.full_proj_transform = full_proj_transform
         view_inv = torch.inverse(self.world_view_transform)
         self.camera_center = view_inv[3][:3]
+        self.sample_step = sample_step
         _, arr_theta, arr_phi = self.fov_sample2ray(self.FoVx/2, self.FoVy/2, sample_step)
         
         cos_theta = torch.cos(arr_theta)
@@ -198,4 +199,25 @@ class MiniCam:
     @staticmethod
     def omni_map_z(m, z, xi=0.0): #1.1
         return m / (1+xi*(z/(torch.abs(z)))*(1+m**2)**0.5)
+    
+    def get_viewpoint_mask(self, ref_camera_dir):
+        from prepare_fov import read_intrinsics_text, fov2tan
+        _, _, width, height, params = read_intrinsics_text(ref_camera_dir)
+        fx = params[0]
+        fy = params[1]
+        cx = params[2]
+        cy = params[3]
+        distortion_params = params[4:]
+        kk = distortion_params
+        tan_theta, tan_phi = fov2tan(self.FoVx/2, self.FoVy/2, self.sample_step)
+        radius = np.sqrt(tan_theta ** 2 + tan_phi ** 2)
+        theta = np.arctan(radius)
+        r = theta * (1.0 + kk[0] * theta**2 + kk[1] * theta**4 + kk[2] * theta**6 + kk[3] * theta**8)
+        u = tan_theta * r * fx / radius + cx
+        v = tan_phi * r * fy / radius + cy
+        u_mask = np.logical_and(u >= 0, u < width)
+        v_mask =  np.logical_and(v >= 0, v < height) 
+        valid_mask = u_mask & v_mask
+        self.valid_mask = (valid_mask).astype(np.uint8)
+        return self.valid_mask
 

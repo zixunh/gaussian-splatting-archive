@@ -32,7 +32,7 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, fov_mod, sample_step, mask_path):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, fov_mod, sample_step, mask_path, sibr_mask_refcam=None):
     os.makedirs('tmp', exist_ok=True)
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -79,12 +79,17 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer, width, height = network_gui.receive(extra_params)
                 if custom_cam != None:
                     net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
+                    if sibr_mask_refcam is not None:
+                        net_mask = custom_cam.get_viewpoint_mask(sibr_mask_refcam)
+                        net_mask = torch.tensor(np.repeat(net_mask[None, ...], 3, axis=0))
+                        net_image[net_mask == 0] = 0.0
                     net_image = torch.nn.functional.interpolate(net_image[None, ...], (height, width), mode='bilinear')[0]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)
                 if do_training and ((iteration < int(opt.iterations)) or not keep_alive):
                     break
             except Exception as e:
+                print(e)
                 network_gui.conn = None
 
         iter_start.record()
@@ -264,6 +269,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
     parser.add_argument("--mask_path", type=str, default = None)
+    parser.add_argument("--sibr_mask_refcam", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = 2e-3)
     parser.add_argument("--fov_mod", type=float, default = 1.3)
     args = parser.parse_args(sys.argv[1:])
@@ -279,7 +285,7 @@ if __name__ == "__main__":
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
-             args.fov_mod,  args.sample_step, args.mask_path)
+             args.fov_mod,  args.sample_step, args.mask_path, args.sibr_mask_refcam)
 
     # All done
     print("\nTraining complete.")
