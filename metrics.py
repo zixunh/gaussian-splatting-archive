@@ -33,7 +33,7 @@ def readImages(renders_dir, gt_dir):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths):
+def evaluate(model_paths, use_remap=False):
 
     full_dict = {}
     per_view_dict = {}
@@ -62,6 +62,10 @@ def evaluate(model_paths):
                 method_dir = test_dir / method
                 gt_dir = method_dir/ "gt"
                 renders_dir = method_dir / "renders"
+                if use_remap:
+                    print("Remapped back to original space.")
+                    gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
+                    renders_dir = renders_dir.with_name(renders_dir.name + "_remap")
                 renders, gts, image_names = readImages(renders_dir, gt_dir)
 
                 ssims = []
@@ -99,5 +103,6 @@ if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
     parser.add_argument('--model_paths', '-m', required=True, nargs="+", type=str, default=[])
+    parser.add_argument('--use_remap', action='store_true')
     args = parser.parse_args()
-    evaluate(args.model_paths)
+    evaluate(args.model_paths, args.use_remap)

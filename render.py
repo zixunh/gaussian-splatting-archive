@@ -25,7 +25,6 @@ from utils.image_utils import psnr
 import numpy as np
 import cv2
 
-
 def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")

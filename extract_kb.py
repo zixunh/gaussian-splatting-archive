@@ -33,8 +33,8 @@ def focal2halffov2(focal, pixels):
 def colmap_main(args):
     root_dir = args.path
     camera_dir = Path(root_dir) / "colmap" / "cameras_fish.txt"
-    input_image_dir = Path(root_dir) / args.src
-    out_image_dir = Path(root_dir) / args.dst
+    input_image_dir = args.src
+    out_image_dir = args.dst
     
     _, _, width, height, params = read_intrinsics_text(camera_dir)
     print(params)
@@ -57,8 +57,12 @@ def colmap_main(args):
     height = int(height * ratio)
     
     # Use prepared fisheye grid map by DAC https://github.com/yuliangguo/depth_any_camera
-    grid_map_file = Path(args.path) / "grid_fisheye.npy"
-    grid_fisheye = np.load(grid_map_file)
+    try:
+        grid_map_file = Path(args.path) / "grid_fisheye.npy"
+        grid_fisheye = np.load(grid_map_file)
+    except:
+        grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
+
     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
     grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)

@@ -28,8 +28,8 @@ class Camera(nn.Module):
         self.colmap_id = colmap_id
         self.R = R
         self.T = T
-        self.FoVx = FoVx.astype(np.float64)
-        self.FoVy = FoVy.astype(np.float64)
+        self.FoVx = FoVx
+        self.FoVy = FoVy
         self.image_name = image_name
 
         try:
@@ -129,9 +129,9 @@ class Camera(nn.Module):
 
     @staticmethod
     def fov_sample2ray(fovx, fovy, interval):
-        theta_arr = torch.arange(interval / 2, fovx, interval, dtype=torch.float64)#.float()
+        theta_arr = torch.arange(interval / 2, fovx, interval)#.float()
         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
-        phi_arr = torch.arange(interval / 2, fovy, interval, dtype=torch.float64)#.float()
+        phi_arr = torch.arange(interval / 2, fovy, interval)#.float()
         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
 
         sin_t = torch.sin(theta_arr)
@@ -178,9 +178,9 @@ class MiniCam:
 
     @staticmethod
     def fov_sample2ray(fovx, fovy, interval):
-        theta_arr = torch.arange(interval / 2, fovx, interval, dtype=torch.float64)
+        theta_arr = torch.arange(interval / 2, fovx, interval)
         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
-        phi_arr = torch.arange(interval / 2, fovy, interval, dtype=torch.float64)
+        phi_arr = torch.arange(interval / 2, fovy, interval)
         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
 
         sin_t = torch.sin(theta_arr)

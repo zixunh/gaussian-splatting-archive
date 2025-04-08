@@ -17,7 +17,7 @@ from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON, cameraList_from_camInfos_fisheye
-from colorama import Back, Fore, Style
+# from colorama import Back, Fore, Style
 
 def check_colmap(args):
     return os.path.exists(os.path.join(args.source_path, 'sparse/0'))
@@ -67,7 +67,7 @@ class Scene:
         self.test_cameras = {}
         dataset = dataset_selector(args)
         # for ray-splatting
-        print(Fore.YELLOW + f"Assuming {dataset} data set!" + Style.RESET_ALL)
+        # print(Fore.YELLOW + f"Assuming {dataset} data set!" + Style.RESET_ALL)
         scene_info = sceneLoadTypeCallbacks[dataset](args)
 
         if not self.loaded_iter:
