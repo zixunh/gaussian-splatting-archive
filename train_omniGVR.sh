@@ -10,7 +10,7 @@ CAM_FN=colmap/cameras_fish.txt
 
 python prepare_fov.py --path $DATASET_DIR --dst $PREPROCESSED_DIR --step $STEP --fov_mod $FOVMOD --mask_dst $MASK_FN
 
-python train.py -s "$DATASET_DIR" -m output/scannetpp/$SCENE_ID \
+python train.py -s $DATASET_DIR -m output/scannetpp/$SCENE_ID \
     --iterations 30000 \
     --checkpoint_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000\
     --save_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000\
@@ -21,14 +21,15 @@ python train.py -s "$DATASET_DIR" -m output/scannetpp/$SCENE_ID \
     --sibr_mask_refcam $DATASET_DIR$CAM_FN \
     --sample_step $STEP --fov_mod $FOVMOD
 
-# # render
-# python render.py \
-#     -m $OUTPUT_PATH \
-#     -s $DATASET_PATH \
-#     --iteration 30000 \
-#     --camera_model FISHEYE \
-#     -r 1 \
-#     --skip_train
+# render
+python render.py \
+    -m output/scannetpp/$SCENE_ID \
+    -s $DATASET_DIR \
+    --iteration 30000 \
+    --camera_model FISHEYE \
+    --skip_train \
+    --mask_path $DATASET_DIR$PREPROCESSED_DIR$MASK_FN \
+    --sample_step $STEP --fov_mod $FOVMOD
 
 # wrap back to origianal space
 python extract_kb.py --path $DATASET_DIR --src $PREPROCESSED_DIR --dst $REMAPPED_DIR --step $STEP --fov_mod $FOVMOD
