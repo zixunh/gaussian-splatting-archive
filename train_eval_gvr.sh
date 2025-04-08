@@ -46,6 +46,7 @@ python render.py \
     -s $DATASET_DIR \
     --iteration $ITERS_NUM \
     --camera_model FISHEYE \
+    --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
     --sample_step $STEP --fov_mod $FOVMOD_EVAL
 
