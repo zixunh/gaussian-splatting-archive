@@ -31,7 +31,9 @@ else
       --eval \
       --sample_step $STEP --fov_mod $FOVMOD_TRAIN \
       --mask_path $DATASET_DIR$FOVMAP_DIR_TRAIN$TRAIN_MASK_FN
-      # Try to block this flag if you don't want to show mask in the online sibr viewer; Note that we support to render the scene under the mask, while these parts don't affect teh final psnr since they are out of the dataset fov.
+      # Try to block this flag if you don't want to show mask in the online sibr viewer;
+      # Note that we support to render the scene under the mask,
+      # while these parts don't affect the final psnr since they are out of the dataset FoV.
       \ --sibr_mask_refcam "$DATASET_DIR"colmap/cameras_fish.txt 
 
 fi
