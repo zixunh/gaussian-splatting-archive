@@ -107,8 +107,8 @@ def colmap_main(args):
     cx = params[2]
     cy = params[3]
 
-    FoVx = focal2halffov2(fx, width) * args.fov_mod
-    FoVy = focal2halffov2(fy, height) * args.fov_mod
+    FoVx = min(focal2halffov2(fx, width) * args.fov_mod, np.pi / 2)
+    FoVy = min(focal2halffov2(fy, height) * args.fov_mod, np.pi / 2)
     print("FOVx in deg: ", 2 * FoVx * 180 / np.pi)
     print("FOVy in deg: ", 2 * FoVy * 180 / np.pi)
     tan_theta, tan_phi = fov2tan(FoVx, FoVy, args.step)
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")
     parser.add_argument('--src', type=str, default="resized_images")
-    parser.add_argument('--dst', type=str, default="image_undistorted_fisheye_fov7")
+    parser.add_argument('--dst', type=str, default="undistorted_fovmaps")
     parser.add_argument('--mask_dst', type=str, default="fov_0.75_step_2e-3_mask.png")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
