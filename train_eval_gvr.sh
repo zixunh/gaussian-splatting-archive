@@ -1,5 +1,5 @@
 set -e
-SKIP_TRAIN=true
+SKIP_TRAIN=false
 
 SCENE_ID=0a5c013435
 DATASET_DIR=/media/scannetpp/$SCENE_ID/dslr/
@@ -15,7 +15,7 @@ FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP"/
 TRAIN_MASK_FN=fov_"$FOVMOD_TRAIN"_step_"$STEP"_mask.png
 TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP"_mask.png
 
-ITERS_NUM=30000
+ITERS_NUM=3000
 
 # train
 if $SKIP_TRAIN; then
@@ -30,12 +30,11 @@ else
       --resolution 1 \
       --eval \
       --sample_step $STEP --fov_mod $FOVMOD_TRAIN \
-      --mask_path $DATASET_DIR$FOVMAP_DIR_TRAIN$TRAIN_MASK_FN
-      # Try to block this flag if you don't want to show mask in the online sibr viewer;
+      --mask_path $DATASET_DIR$FOVMAP_DIR_TRAIN$TRAIN_MASK_FN \
+      --sibr_mask_refcam "$DATASET_DIR"colmap/cameras_fish.txt 
+      # Try to block the flag 'sibr_mask_refcam' if you don't want to show mask in the online sibr viewer;
       # Note that we support to render the scene under the mask,
       # while these parts don't affect the final psnr since they are out of the dataset FoV.
-      \ --sibr_mask_refcam "$DATASET_DIR"colmap/cameras_fish.txt 
-
 fi
 
 # eval
@@ -47,7 +46,6 @@ python render.py \
     -s $DATASET_DIR \
     --iteration $ITERS_NUM \
     --camera_model FISHEYE \
-    --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
     --sample_step $STEP --fov_mod $FOVMOD_EVAL
 
