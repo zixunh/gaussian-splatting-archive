@@ -1,5 +1,5 @@
 set -e
-SKIP_TRAIN=true
+SKIP_TRAIN=false
 
 SCENE_ID=0a5c013435
 DATASET_DIR=/media/scannetpp/$SCENE_ID/dslr/
@@ -15,18 +15,18 @@ FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP"/
 TRAIN_MASK_FN=fov_"$FOVMOD_TRAIN"_step_"$STEP"_mask.png
 TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP"_mask.png
 
-ITERS_NUM=3000
+ITERS_NUM=30000
 
 # train
-if [ $SKIP_TRAIN ]; then
+if $SKIP_TRAIN; then
   echo "Load ckpt $ITERS_NUM from output/scannetpp/$SCENE_ID"
 else
   python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN
   python train.py -s $DATASET_DIR -m output/scannetpp/$SCENE_ID \
       --iterations $ITERS_NUM \
-      --checkpoint_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000\
-      --save_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000\
-      --test_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000\
+      --checkpoint_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
+      --save_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
+      --test_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
       --resolution 1 \
       --eval \
       --sample_step $STEP --fov_mod $FOVMOD_TRAIN \
