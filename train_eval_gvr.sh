@@ -1,5 +1,5 @@
 set -e
-SKIP_TRAIN=false
+SKIP_TRAIN=true
 
 SCENE_ID=0a5c013435
 DATASET_DIR=/media/scannetpp/$SCENE_ID/dslr/
