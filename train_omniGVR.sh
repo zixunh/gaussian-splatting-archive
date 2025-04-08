@@ -21,4 +21,19 @@ python train.py -s "$DATASET_DIR" -m output/scannetpp/$SCENE_ID \
     --sibr_mask_refcam $DATASET_DIR$CAM_FN \
     --sample_step $STEP --fov_mod $FOVMOD
 
+# # render
+# python render.py \
+#     -m $OUTPUT_PATH \
+#     -s $DATASET_PATH \
+#     --iteration 30000 \
+#     --camera_model FISHEYE \
+#     -r 1 \
+#     --skip_train
+
+# wrap back to origianal space
 python extract_kb.py --path $DATASET_DIR --src $PREPROCESSED_DIR --dst $REMAPPED_DIR --step $STEP --fov_mod $FOVMOD
+
+# # evaluation
+# python metrics.py \
+#     -m $OUTPUT_PATH \
+#     --use_remap
