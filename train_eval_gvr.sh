@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=0a5c013435
+SCENE_ID=0a7cc12c0e
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 OUTPUT_DIR=./output/scannetpp/$SCENE_ID
@@ -16,7 +16,7 @@ FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP"/
 TRAIN_MASK_FN=fov_"$FOVMOD_TRAIN"_step_"$STEP"_mask.png
 TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP"_mask.png
 
-ITERS_NUM=3000
+ITERS_NUM=30000
 
 # train
 if $SKIP_TRAIN; then
@@ -61,8 +61,7 @@ python extract_kb.py --path $DATASET_DIR \
                      --dst output/scannetpp/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap \
                      --step $STEP --fov_mod $FOVMOD_EVAL
 
-# # evaluation
-# python metrics.py \
-#     -m output/scannetpp/$SCENE_ID
+# evaluation
 python metrics.py \
-    -m output/scannetpp/$SCENE_ID --use_remap
+    -m output/scannetpp/$SCENE_ID --use_remap \
+    --iters $ITERS_NUM

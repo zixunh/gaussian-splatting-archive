@@ -33,7 +33,7 @@ def readImages(renders_dir, gt_dir):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths, use_remap=False):
+def evaluate(model_paths, use_remap=False, iters=None):
 
     full_dict = {}
     per_view_dict = {}
@@ -52,6 +52,9 @@ def evaluate(model_paths, use_remap=False):
             test_dir = Path(scene_dir) / "test"
 
             for method in os.listdir(test_dir):
+                if iters is not None:
+                    if str(iters) not in method:
+                        continue
                 print("Method:", method)
 
                 full_dict[scene_dir][method] = {}
@@ -104,5 +107,6 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Training script parameters")
     parser.add_argument('--model_paths', '-m', required=True, nargs="+", type=str, default=[])
     parser.add_argument('--use_remap', action='store_true')
+    parser.add_argument('--iters', type=int, default = None)
     args = parser.parse_args()
-    evaluate(args.model_paths, args.use_remap)
+    evaluate(args.model_paths, args.use_remap, args.iters)
