@@ -68,7 +68,6 @@ def prepare_sibr_cfg(args):
     cameras_txt = os.path.join(root_dir, "colmap", "cameras.txt")
     images_txt = os.path.join(root_dir, "colmap", "images.txt")
     points_txt = os.path.join(root_dir, "colmap", "points3D.txt")
-    points_ply = os.path.join(root_dir, "colmap", "points3D.ply")
     cameras_fish_txt = os.path.join(root_dir, "colmap", "cameras_fish.txt")
 
     if not os.path.exists(cameras_txt):
@@ -124,9 +123,14 @@ def colmap_main(args):
     u_mask = np.logical_and(u >= 0, u < width)
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
-    valid_mask = (valid_mask).astype(np.uint8)
-    out_image_path = Path(out_image_dir) / args.mask_dst
-    cv2.imwrite(str(out_image_path), valid_mask * 255)
+
+    if valid_mask is not None:
+        mask_output_path = Path(out_image_dir) / args.mask_dst
+        mask_output_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(mask_output_path), valid_mask.astype(np.uint8) * 255)
+        print("Save mask to:", mask_output_path, "with shape: ", valid_mask.shape)
+    else:
+        print("Warning: valid_mask is None")
 
     u, v = u.astype(np.float32), v.astype(np.float32)
 
