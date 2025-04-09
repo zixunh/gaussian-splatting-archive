@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=1f7cbbdde1
+SCENE_ID=0a5c013435
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 OUTPUT_DIR=./output/scannetpp/$SCENE_ID
@@ -61,8 +61,8 @@ python extract_kb.py --path $DATASET_DIR \
                      --dst output/scannetpp/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap \
                      --step $STEP --fov_mod $FOVMOD_EVAL
 
-# evaluation
-python metrics.py \
-    -m output/scannetpp/$SCENE_ID
+# # evaluation
+# python metrics.py \
+#     -m output/scannetpp/$SCENE_ID
 python metrics.py \
     -m output/scannetpp/$SCENE_ID --use_remap

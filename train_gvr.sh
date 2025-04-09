@@ -1,5 +1,6 @@
 set -e
-SCENE_IDS="0a5c013435 1f7cbbdde1 1d003b07bd"
+# SCENE_IDS="0a5c013435 1f7cbbdde1 1d003b07bd"
+SCENE_IDS="0a7cc12c0e 0a76e06478 e3ecd49e2b fb05e13ad1 fe1733741f"
 DATA_ROOT="/media/scannetpp/demo/"
 
 STEP=2e-3
