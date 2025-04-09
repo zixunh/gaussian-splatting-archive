@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=0a7cc12c0e
+SCENE_ID=4ef75031e3
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 OUTPUT_DIR=./output/scannetpp/$SCENE_ID

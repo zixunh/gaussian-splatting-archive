@@ -79,9 +79,19 @@ def cameraList_from_camInfos_fisheye(cam_infos, resolution_scale, is_nerf_synthe
     camera_list = []
 
     for id, c in enumerate(cam_infos):
+        if id%100 == 0:
+            print(f"[ INFO ] Loading camera {id}/{len(cam_infos)}")
+            print_memory_usage()
         camera_list.append(loadCam(args, id, c, resolution_scale, is_nerf_synthetic, is_test_dataset))
 
     return camera_list
+
+def print_memory_usage():
+    import psutil
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+    print(f"RAM: {mem.used / 1e9:.2f} GB / {mem.total / 1e9:.2f} GB")
+    print(f"SWAP: {swap.used / 1e9:.2f} GB / {swap.total / 1e9:.2f} GB")
 
 def camera_to_JSON(id, camera : Camera):
     Rt = np.zeros((4, 4))
