@@ -48,7 +48,7 @@ class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.sh_degree = 3
         self._source_path = ""
-        self._model_path = "/home/choyingw/Documents/0221_clone/gaussian-splatting/output/a1f0bb37-a"
+        self._model_path = "./output/scannetpp/0a5c013435"
         self._images = "images"
         self._depths = ""
         self._resolution = -1
@@ -56,7 +56,7 @@ class ModelParams(ParamGroup):
         self.dataset = "AUTO" #AUTO/COLMAP/BLENDER/SCANNETPP
         self._white_background = False
         self.train_test_exp = False
-        self.data_device = "cuda"
+        self.data_device = "cpu" #"cpu"/"cuda"
         self.eval = False
         super().__init__(parser, "Loading Parameters", sentinel)
 

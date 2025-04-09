@@ -43,10 +43,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scale_modifier=scaling_modifier,
         viewmatrix=viewpoint_camera.world_view_transform,
         # projmatrix=viewpoint_camera.full_proj_transform,
-        omni_tan_theta=viewpoint_camera.omni_tan_theta, # for ray-splatting
-        omni_tan_phi=viewpoint_camera.omni_tan_phi, # for ray-splatting
-        tan_theta=viewpoint_camera.tan_theta, # for ray-splatting
-        tan_phi=viewpoint_camera.tan_phi, # for ray-splatting
+        omni_tan_theta=viewpoint_camera.omni_tan_theta.cuda(), # for ray-splatting
+        omni_tan_phi=viewpoint_camera.omni_tan_phi.cuda(), # for ray-splatting
+        tan_theta=viewpoint_camera.tan_theta.cuda(), # for ray-splatting
+        tan_phi=viewpoint_camera.tan_phi.cuda(), # for ray-splatting
         sh_degree=pc.active_sh_degree,
         campos=viewpoint_camera.camera_center,
         prefiltered=False,

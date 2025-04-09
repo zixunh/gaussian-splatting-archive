@@ -14,6 +14,8 @@ import numpy as np
 from utils.graphics_utils import fov2focal
 from PIL import Image
 import cv2
+import psutil
+import torch
 
 WARNED = False
 
@@ -87,11 +89,20 @@ def cameraList_from_camInfos_fisheye(cam_infos, resolution_scale, is_nerf_synthe
     return camera_list
 
 def print_memory_usage():
-    import psutil
     mem = psutil.virtual_memory()
     swap = psutil.swap_memory()
     print(f"RAM: {mem.used / 1e9:.2f} GB / {mem.total / 1e9:.2f} GB")
     print(f"SWAP: {swap.used / 1e9:.2f} GB / {swap.total / 1e9:.2f} GB")
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+        total_vram = torch.cuda.get_device_properties(device).total_memory
+        allocated_vram = torch.cuda.memory_allocated(device)
+        cached_vram = torch.cuda.memory_reserved(device)
+        
+        print(f"GPU VRAM: {allocated_vram / 1e9:.2f} GB / {total_vram / 1e9:.2f} GB allocated")
+        print(f"GPU VRAM cached: {cached_vram / 1e9:.2f} GB / {total_vram / 1e9:.2f} GB cached")
+    else:
+        print("No GPU detected.")
 
 def camera_to_JSON(id, camera : Camera):
     Rt = np.zeros((4, 4))
