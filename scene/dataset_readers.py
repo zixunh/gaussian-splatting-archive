@@ -294,6 +294,8 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, fov
         image_name = os.path.basename(image_path).split(".")[0]
         if not os.path.exists(image_path):
             image_path = image_path.replace(".png", ".JPG") # fix for loading zhita_5k dataset
+        if not os.path.exists(image_path):
+            continue
         image = Image.open(image_path)
         cam_info = CameraInfo_fisheye(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                               image_path=image_path, image_name=image_name, width=width, height=height)
