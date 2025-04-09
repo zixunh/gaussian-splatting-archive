@@ -91,7 +91,6 @@ def prepare_sibr_cfg(args):
     shutil.copy2(cameras_txt, sibr_cfg_dir / "cameras.txt")
     shutil.copy2(images_txt, sibr_cfg_dir / "images.txt")
     shutil.copy2(points_txt, sibr_cfg_dir / "points3D.txt")
-    shutil.copy2(points_ply, sibr_cfg_dir / "points3D.ply")
     print(f"Prepare directory: {sibr_cfg_dir} for sibr online rendering.\n")
 
 def colmap_main(args):
