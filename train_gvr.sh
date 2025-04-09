@@ -6,7 +6,7 @@ STEP=2e-3
 FOVMOD_TRAIN=1.3
 FOVMOD_EVAL=2.0
 
-ITERS_NUM=10
+ITERS_NUM=30000
 
 for SCENE_ID in $SCENE_IDS; do
     echo "Processing scene: $SCENE_ID"
