@@ -77,6 +77,13 @@ def cameraList_from_camInfos(cam_infos, resolution_scale, args, is_nerf_syntheti
 
     return camera_list
 
+def print_memory_usage():
+    import psutil
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+    print(f"RAM: {mem.used / 1e9:.2f} GB / {mem.total / 1e9:.2f} GB")
+    print(f"SWAP: {swap.used / 1e9:.2f} GB / {swap.total / 1e9:.2f} GB")
+
 def cameraList_from_camInfos_fisheye(cam_infos, resolution_scale, is_nerf_synthetic, is_test_dataset, args):
     camera_list = []
 

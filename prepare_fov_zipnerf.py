@@ -9,6 +9,29 @@ from argparse import ArgumentParser
 # from utils.graphics_utils import focal2fov
 # import torch
 import shutil
+import struct
+import collections
+
+
+CameraModel = collections.namedtuple(
+    "CameraModel", ["model_id", "model_name", "num_params"])
+CAMERA_MODELS = {
+    CameraModel(model_id=0, model_name="SIMPLE_PINHOLE", num_params=3),
+    CameraModel(model_id=1, model_name="PINHOLE", num_params=4),
+    CameraModel(model_id=2, model_name="SIMPLE_RADIAL", num_params=4),
+    CameraModel(model_id=3, model_name="RADIAL", num_params=5),
+    CameraModel(model_id=4, model_name="OPENCV", num_params=8),
+    CameraModel(model_id=5, model_name="OPENCV_FISHEYE", num_params=8),
+    CameraModel(model_id=6, model_name="FULL_OPENCV", num_params=12),
+    CameraModel(model_id=7, model_name="FOV", num_params=5),
+    CameraModel(model_id=8, model_name="SIMPLE_RADIAL_FISHEYE", num_params=4),
+    CameraModel(model_id=9, model_name="RADIAL_FISHEYE", num_params=5),
+    CameraModel(model_id=10, model_name="THIN_PRISM_FISHEYE", num_params=12)
+}
+CAMERA_MODEL_IDS = dict([(camera_model.model_id, camera_model)
+                         for camera_model in CAMERA_MODELS])
+CAMERA_MODEL_NAMES = dict([(camera_model.model_name, camera_model)
+                           for camera_model in CAMERA_MODELS])
 
 def psnr(img1, img2):
     mse = np.mean((img1 - img2) ** 2)
@@ -17,24 +40,40 @@ def psnr(img1, img2):
     PIXEL_MAX = 255.0
     return 20 * np.log10(PIXEL_MAX / np.sqrt(mse))
 
-def read_intrinsics_text(path):
+def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
+    """Read and unpack the next bytes from a binary file.
+    :param fid:
+    :param num_bytes: Sum of combination of {2, 4, 8}, e.g. 2, 6, 16, 30, etc.
+    :param format_char_sequence: List of {c, e, f, d, h, H, i, I, l, L, q, Q}.
+    :param endian_character: Any of {@, =, <, >, !}
+    :return: Tuple of read and unpacked values.
     """
-    Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
+    data = fid.read(num_bytes)
+    return struct.unpack(endian_character + format_char_sequence, data)
+
+
+def read_intrinsics_binary(path_to_model_file):
     """
-    with open(path, "r") as fid:
-        while True:
-            line = fid.readline()
-            if not line:
-                break
-            line = line.strip()
-            if len(line) > 0 and line[0] != "#":
-                elems = line.split()
-                camera_id = int(elems[0])
-                model = elems[1]
-                width = int(elems[2])
-                height = int(elems[3])
-                params = np.array(tuple(map(np.float64, elems[4:])))
-    return camera_id, model, width, height, params
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasBinary(const std::string& path)
+        void Reconstruction::ReadCamerasBinary(const std::string& path)
+    """
+    cameras = {}
+    with open(path_to_model_file, "rb") as fid:
+        num_cameras = read_next_bytes(fid, 8, "Q")[0]
+        for _ in range(num_cameras):
+            camera_properties = read_next_bytes(
+                fid, num_bytes=24, format_char_sequence="iiQQ")
+            camera_id = camera_properties[0]
+            model_id = camera_properties[1]
+            model_name = CAMERA_MODEL_IDS[camera_properties[1]].model_name
+            width = camera_properties[2]
+            height = camera_properties[3]
+            num_params = CAMERA_MODEL_IDS[model_id].num_params
+            params = read_next_bytes(fid, num_bytes=8*num_params,
+                                     format_char_sequence="d"*num_params)
+            params = np.array(tuple(map(np.float64, params)))
+    return camera_id, model_name, width, height, params
 
 def fov2tan(fovx, fovy, interval):
     theta_arr = np.arange(interval / 2, fovx, interval)
@@ -50,56 +89,16 @@ def fov2tan(fovx, fovy, interval):
     tan_p = sin_p / cos_p
     return tan_t, tan_p
 
-    # r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
-    # x = (sin_t * cos_p) / r
-    # y = (cos_t * sin_p) / r
-    # z = (cos_t * cos_p) / r
-    # ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).flatten(0,-2)
-
-    # return ray, theta_arr, phi_arr
-
 def focal2halffov2(focal, pixels):
     return pixels / 2 / focal
 
-def prepare_sibr_cfg(args):
-    root_dir = args.path
-    sibr_cfg_dir = Path(root_dir) / "colmap" / "stereo" / "sparse"
-
-    cameras_txt = os.path.join(root_dir, "colmap", "cameras.txt")
-    images_txt = os.path.join(root_dir, "colmap", "images.txt")
-    points_txt = os.path.join(root_dir, "colmap", "points3D.txt")
-    cameras_fish_txt = os.path.join(root_dir, "colmap", "cameras_fish.txt")
-
-    if not os.path.exists(cameras_txt):
-        raise FileNotFoundError(f"Source file not found: {cameras_txt}")
-    if not os.path.exists(cameras_fish_txt):
-        shutil.copy2(cameras_txt, cameras_fish_txt)
-
-    # Replace "OPENCV_FISHEYE" with "OPENCV" in cameras.txt
-    with open(cameras_txt, "r") as f:
-        content = f.read().replace("OPENCV_FISHEYE", "OPENCV")
-    # Save the modified version in the same directory
-    with open(cameras_txt, "w") as f:
-        f.write(content)
-    print("Replace 'OPENCV_FISHEYE' with 'OPENCV' in cameras.txt")
-    
-    # Ensure sibr_cfg_dir exists
-    sibr_cfg_dir.mkdir(parents=True, exist_ok=True)
-
-    # Copy cameras.txt to sibr_cfg_dir
-    shutil.copy2(cameras_txt, sibr_cfg_dir / "cameras.txt")
-    shutil.copy2(images_txt, sibr_cfg_dir / "images.txt")
-    shutil.copy2(points_txt, sibr_cfg_dir / "points3D.txt")
-    #shutil.copy2(points_ply, sibr_cfg_dir / "points3D.ply")
-    print(f"Prepare directory: {sibr_cfg_dir} for sibr online rendering.\n")
-
 def colmap_main(args):
     root_dir = args.path
-    camera_dir = Path(root_dir) / "colmap" / "cameras_fish.txt"
+    camera_dir = Path(root_dir) / "sparse" / "0" / "cameras.bin"
     input_image_dir = Path(root_dir) / args.src
     out_image_dir = Path(root_dir) / args.dst
     
-    _, _, width, height, params = read_intrinsics_text(camera_dir)
+    _, _, width, height, params = read_intrinsics_binary(camera_dir)
 
     fx = params[0]
     fy = params[1]
@@ -124,6 +123,7 @@ def colmap_main(args):
     u_mask = np.logical_and(u >= 0, u < width)
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
+    valid_mask = (valid_mask).astype(np.uint8)
 
     if valid_mask is not None:
         mask_output_path = Path(out_image_dir) / args.mask_dst
@@ -191,11 +191,10 @@ def colmap_main(args):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")
-    parser.add_argument('--src', type=str, default="resized_images")
+    parser.add_argument('--src', type=str, default="images")
     parser.add_argument('--dst', type=str, default="undistorted_fovmaps")
     parser.add_argument('--mask_dst', type=str, default="fov_0.75_step_2e-3_mask.png")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
     args = parser.parse_args()
-    prepare_sibr_cfg(args)
     colmap_main(args)

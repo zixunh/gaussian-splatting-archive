@@ -91,14 +91,13 @@ class Camera(nn.Module):
         # for ray-splatting start
         # Change the step adjust resolution
         arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, step)
-        # self.sampled_rays = sampled_rays
         cos_theta = torch.cos(arr_theta)
         cos_phi = torch.cos(arr_phi)
         
-        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta)
-        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi)
-        self.tan_theta = torch.tan(arr_theta)
-        self.tan_phi = torch.tan(arr_phi)
+        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(self.data_device)
+        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(self.data_device)
+        self.tan_theta = torch.tan(arr_theta).to(self.data_device)
+        self.tan_phi = torch.tan(arr_phi).to(self.data_device)
         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
         self.sampled_image = self.original_image
@@ -129,21 +128,10 @@ class Camera(nn.Module):
 
     @staticmethod
     def fov_sample2ray(fovx, fovy, interval):
-        theta_arr = torch.arange(interval / 2, fovx, interval)#.float()
+        theta_arr = torch.arange(interval / 2, fovx, interval)
         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
-        phi_arr = torch.arange(interval / 2, fovy, interval)#.float()
+        phi_arr = torch.arange(interval / 2, fovy, interval)
         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
-
-        # sin_t = torch.sin(theta_arr)
-        # cos_t = torch.cos(theta_arr)
-        # sin_p = torch.sin(phi_arr).unsqueeze(1)
-        # cos_p = torch.cos(phi_arr).unsqueeze(1)
-
-        # r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
-        # x = (sin_t * cos_p) / r
-        # y = (cos_t * sin_p) / r
-        # z = (cos_t * cos_p) / r
-        # ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).to('cuda').flatten(0,-2)
 
         return theta_arr.float(), phi_arr.float()
 
@@ -169,10 +157,10 @@ class MiniCam:
         cos_theta = torch.cos(arr_theta)
         cos_phi = torch.cos(arr_phi)
         
-        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).cuda()
-        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).cuda()
-        self.tan_theta = torch.tan(arr_theta).cuda()
-        self.tan_phi = torch.tan(arr_phi).cuda()
+        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(self.data_device)
+        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(self.data_device)
+        self.tan_theta = torch.tan(arr_theta).to(self.data_device)
+        self.tan_phi = torch.tan(arr_phi).to(self.data_device)
         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
 
@@ -182,18 +170,7 @@ class MiniCam:
         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
         phi_arr = torch.arange(interval / 2, fovy, interval)
         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
-
-        sin_t = torch.sin(theta_arr)
-        cos_t = torch.cos(theta_arr)
-        sin_p = torch.sin(phi_arr).unsqueeze(1)
-        cos_p = torch.cos(phi_arr).unsqueeze(1)
-
-        r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
-        x = (sin_t * cos_p) / r
-        y = (cos_t * sin_p) / r
-        z = (cos_t * cos_p) / r
-        # ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).to('cuda').flatten(0,-2)
-
+        
         return theta_arr.float(), phi_arr.float()
 
     @staticmethod

@@ -29,7 +29,7 @@ def check_mvl(args):
     return os.path.exists(os.path.join(args.source_path, "img"))
 
 def check_scannetpp(args):
-    return os.path.exists(os.path.join(args.source_path, 'resized_images'))
+    return os.path.exists(os.path.join(args.source_path, 'resized_images')) or os.path.exists(os.path.join(args.source_path, 'images'))
 
 def dataset_selector(args):
     dataset = args.dataset
