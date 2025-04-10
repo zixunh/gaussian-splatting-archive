@@ -448,6 +448,8 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
 
 # for ray-splatting
 def readScannetppInfo(args):
+    # Both scannetpp and zipnerf uses readScannetppInfo this class.
+    # If scannetpp is used, add args.colmaps = 'colmap' to the args. For zipnerf, it is None.
     args.colmaps = 'colmap' if 'scannetpp' in args.source_path else None
     if args.camera_model == "PINHOLE":
         args.images = 'undistorted_images'

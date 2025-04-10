@@ -12,6 +12,7 @@ import shutil
 import struct
 import collections
 
+
 CameraModel = collections.namedtuple(
     "CameraModel", ["model_id", "model_name", "num_params"])
 CAMERA_MODELS = {
@@ -38,26 +39,6 @@ def psnr(img1, img2):
         return 100
     PIXEL_MAX = 255.0
     return 20 * np.log10(PIXEL_MAX / np.sqrt(mse))
-
-def read_intrinsics_text(path):
-    """
-    Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
-    """
-    with open(path, "r") as fid:
-        while True:
-            line = fid.readline()
-            if not line:
-                break
-            line = line.strip()
-            if len(line) > 0 and line[0] != "#":
-                elems = line.split()
-                camera_id = int(elems[0])
-                model = elems[1]
-                width = int(elems[2])
-                height = int(elems[3])
-                params = np.array(tuple(map(np.float64, elems[4:])))
-    return camera_id, model, width, height, params
-
 
 def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
     """Read and unpack the next bytes from a binary file.
@@ -108,49 +89,8 @@ def fov2tan(fovx, fovy, interval):
     tan_p = sin_p / cos_p
     return tan_t, tan_p
 
-    # r = ((sin_t**2)*(cos_p**2)+(cos_t**2)*(sin_p**2)+(cos_t**2)*(cos_p**2))**0.5
-    # x = (sin_t * cos_p) / r
-    # y = (cos_t * sin_p) / r
-    # z = (cos_t * cos_p) / r
-    # ray = torch.cat((x[...,None], y[...,None], z[...,None]), dim=-1).flatten(0,-2)
-
-    # return ray, theta_arr, phi_arr
-
 def focal2halffov2(focal, pixels):
     return pixels / 2 / focal
-
-def prepare_sibr_cfg(args):
-    root_dir = args.path
-    sibr_cfg_dir = Path(root_dir) / "colmap" / "stereo" / "sparse"
-
-    cameras_txt = os.path.join(root_dir, "colmap", "cameras.txt")
-    images_txt = os.path.join(root_dir, "colmap", "images.txt")
-    points_txt = os.path.join(root_dir, "colmap", "points3D.txt")
-    points_ply = os.path.join(root_dir, "colmap", "points3D.ply")
-    cameras_fish_txt = os.path.join(root_dir, "colmap", "cameras_fish.txt")
-
-    if not os.path.exists(cameras_txt):
-        raise FileNotFoundError(f"Source file not found: {cameras_txt}")
-    if not os.path.exists(cameras_fish_txt):
-        shutil.copy2(cameras_txt, cameras_fish_txt)
-
-    # Replace "OPENCV_FISHEYE" with "OPENCV" in cameras.txt
-    with open(cameras_txt, "r") as f:
-        content = f.read().replace("OPENCV_FISHEYE", "OPENCV")
-    # Save the modified version in the same directory
-    with open(cameras_txt, "w") as f:
-        f.write(content)
-    print("Replace 'OPENCV_FISHEYE' with 'OPENCV' in cameras.txt")
-    
-    # Ensure sibr_cfg_dir exists
-    sibr_cfg_dir.mkdir(parents=True, exist_ok=True)
-
-    # Copy cameras.txt to sibr_cfg_dir
-    shutil.copy2(cameras_txt, sibr_cfg_dir / "cameras.txt")
-    shutil.copy2(images_txt, sibr_cfg_dir / "images.txt")
-    shutil.copy2(points_txt, sibr_cfg_dir / "points3D.txt")
-    #shutil.copy2(points_ply, sibr_cfg_dir / "points3D.ply")
-    print(f"Prepare directory: {sibr_cfg_dir} for sibr online rendering.\n")
 
 def colmap_main(args):
     root_dir = args.path
@@ -158,7 +98,6 @@ def colmap_main(args):
     input_image_dir = Path(root_dir) / args.src
     out_image_dir = Path(root_dir) / args.dst
     
-    #_, _, width, height, params = read_intrinsics_text(camera_dir)
     _, _, width, height, params = read_intrinsics_binary(camera_dir)
 
     fx = params[0]
@@ -258,5 +197,4 @@ if __name__ == "__main__":
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
     args = parser.parse_args()
-    #prepare_sibr_cfg(args)
     colmap_main(args)
