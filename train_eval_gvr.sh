@@ -1,9 +1,8 @@
 set -e
-SKIP_TRAIN=true
+SKIP_TRAIN=false
 
-SCENE_ID=4ef75031e3
-DATA_ROOT=/media/scannetpp/demo/
-DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
+SCENE_ID=0b031f3119
+DATASET_DIR=/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp/$SCENE_ID/dslr/
 OUTPUT_DIR=./output/scannetpp/$SCENE_ID
 
 STEP=2e-3
@@ -22,6 +21,7 @@ ITERS_NUM=30000
 if $SKIP_TRAIN; then
   echo "Load ckpt $ITERS_NUM from output/scannetpp/$SCENE_ID"
 else
+  echo "Train $SCENE_ID"
   python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN
   python train.py -s $DATASET_DIR -m output/scannetpp/$SCENE_ID \
       --iterations $ITERS_NUM \
@@ -37,10 +37,8 @@ else
       # Note that we support to render the scene under the mask,
       # while these parts don't affect the final psnr since they are out of the dataset FoV.
 fi
-
 # eval
 python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
-
 # render
 python render.py \
     -m output/scannetpp/$SCENE_ID \

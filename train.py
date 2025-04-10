@@ -60,8 +60,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
 
-    # mask_path = '/media/scannetpp/0a5c013435/dslr/image_undistorted_fisheye_fov7'
-    # valid_mask = cv2.imread(mask_path + "/fov_0.75_step_2e-3_mask.png", cv2.IMREAD_GRAYSCALE)
     print("mask_path:", mask_path)
     valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)

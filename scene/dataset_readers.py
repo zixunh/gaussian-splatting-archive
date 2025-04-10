@@ -448,7 +448,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
 
 # for ray-splatting
 def readScannetppInfo(args):
-    args.colmaps = 'colmap'
+    args.colmaps = 'colmap' if 'scannetpp' in args.source_path else None
     if args.camera_model == "PINHOLE":
         args.images = 'undistorted_images'
     if args.camera_model == "FISHEYE":
