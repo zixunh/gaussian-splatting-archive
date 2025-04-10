@@ -61,7 +61,11 @@ def colmap_main(args):
         grid_map_file = Path(args.path) / "grid_fisheye.npy"
         grid_fisheye = np.load(grid_map_file)
     except:
-        grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
+        if args.gridmap_restrict:
+            raise ValueError("Grid map restrict is not supported")
+        else:
+            grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
+            print("Grid map file may not match with the camera intrinsic: ", grid_map_file)
 
     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
@@ -114,5 +118,6 @@ if __name__ == "__main__":
     parser.add_argument('--dst', type=str, default="remapped_fisheye")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
+    parser.add_argument('--gridmap_restrict', action='store_true', default=False)
     args = parser.parse_args()
     colmap_main(args)
