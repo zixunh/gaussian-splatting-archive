@@ -29,7 +29,6 @@ def readImages(renders_dir, gt_dir, renders_list, start, end):
     image_names = []
     for load_num in range(start, end):
         fname = renders_list[load_num].rsplit("/")[-1]
-        print(fname)
         render = Image.open(renders_dir / fname)
         gt = Image.open(gt_dir / fname)
         renders.append(tf.to_tensor(render).unsqueeze(0)[:, :3, :, :].cuda())
@@ -77,12 +76,11 @@ def evaluate(model_paths, use_remap=False, iters=None):
             num_rendered = len(renders_list)
             # Split into every N image to prevent one-time load in too many image that may cause OOM.
             N = 20
+            ssims = []
+            psnrs = []
+            lpipss = []
             for i in range(math.ceil(num_rendered / N)):
                 renders, gts, image_names = readImages(renders_dir, gt_dir, renders_list, i*N, min(num_rendered, (i+1)*N))
-
-                ssims = []
-                psnrs = []
-                lpipss = []
 
                 for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
                     ssims.append(ssim(renders[idx], gts[idx]))
