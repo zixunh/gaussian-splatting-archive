@@ -51,14 +51,16 @@ python render.py \
     --sample_step $STEP --fov_mod $FOVMOD_EVAL
 
 # wrap back to origianal space
-python extract_kb.py --path $DATASET_DIR \
+python extract_kb_zipnerf.py --path $DATASET_DIR \
                      --src output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/gt \
                      --dst output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
-                     --step $STEP --fov_mod $FOVMOD_EVAL
-python extract_kb.py --path $DATASET_DIR \
+                     --step $STEP --fov_mod $FOVMOD_EVAL \
+                     -r 8
+python extract_kb_zipnerf.py --path $DATASET_DIR \
                      --src output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders \
                      --dst output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap \
-                     --step $STEP --fov_mod $FOVMOD_EVAL
+                     --step $STEP --fov_mod $FOVMOD_EVAL \
+                     -r 8
 
 # evaluation
 python metrics.py \
