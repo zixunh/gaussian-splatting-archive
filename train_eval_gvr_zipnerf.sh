@@ -58,14 +58,15 @@ python render.py \
     --camera_model FISHEYE \
     --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
-    --sample_step $STEP_RAW_EVAL --fov_mod $FOVMOD_EVAL
+    --sample_step $STEP_RAW_EVAL --fov_mod $FOVMOD_EVAL \
+    --orig_data_path $DATASET_DIR/images_8
 
 # wrap back to origianal space
 python extract_kb_zipnerf.py --path $DATASET_DIR \
                      --src output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/gt \
                      --dst output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
-                     -r 8
+                     -r 8 -resize_factor 4
 python extract_kb_zipnerf.py --path $DATASET_DIR \
                      --src output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders \
                      --dst output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap \

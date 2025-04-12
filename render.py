@@ -91,6 +91,7 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
              render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
 
         if not skip_test:
+             # Set train_test_exp to False for test. If true, it will load the pretrained exposure, which only has training data's exposure.
              render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, False, orig_data_path=None)
 
 if __name__ == "__main__":

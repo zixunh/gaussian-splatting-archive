@@ -93,9 +93,13 @@ def colmap_main(args):
     out_image_dir = args.dst
     
     _, _, width, height, params = read_intrinsics_binary(camera_dir)
+    width_original = width
+    height_original = height
     print(params)
     
     # adjust fx, fy, cx, cy by the actual image size
+    if args.resize_factor != -1:
+        args.r = args.r / args.resize_factor
     if args.r == -1:
         ratio = 1.0
     else:
@@ -167,13 +171,18 @@ def colmap_main(args):
         )
         reversed_image_path = Path(out_image_dir) / frame
         reversed_image_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if args.resize_factor != -1:
+            target_width = int(width_original / args.resize_factor / args.r)
+            target_height = int(height_original / args.resize_factor / args.r)
+            reversed_image = cv2.resize(reversed_image, (target_width, target_height), interpolation=cv2.INTER_AREA)
         cv2.imwrite(str(reversed_image_path), reversed_image)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('-r', type=int, default=-1)
-
+    parser.add_argument('-resize_factor', type=int, default=-1)
     parser.add_argument('--path', type=str, default="/media/scannetpp/demo/0a5c013435/dslr/")
     parser.add_argument('--src', type=str, default="undistorted_fovmaps")
     parser.add_argument('--dst', type=str, default="remapped_fisheye")
