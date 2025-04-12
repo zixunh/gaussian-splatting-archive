@@ -455,9 +455,8 @@ def readScannetppInfo(args):
         args.images = 'undistorted_images'
     if args.camera_model == "FISHEYE":
         sample_step = args.sample_step
-        sample_step_sci_str = "{:.0e}".format(sample_step).replace("e-0", "e-")
-        args.images = f'undistorted_fovmaps_fov_{args.fov_mod}_step_{sample_step_sci_str}'
-        print("Reading: ", args.images)
+        # sample_step = "{:.0e}".format(sample_step).replace("e-0", "e-")
+        args.images = f'undistorted_fovmaps_fov_{args.fov_mod}_step_{sample_step}'
 
     override_intr = None
     path = args.source_path

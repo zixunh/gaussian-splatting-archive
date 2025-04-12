@@ -117,6 +117,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         image[valid_mask == 0] = 0.0
         # Loss
         gt_image = viewpoint_cam.sampled_image.cuda()
+        # print("gt_image.shape:", gt_image.shape)
+        # print("image.shape:", image.shape)
+        # print("valid_mask.shape:", valid_mask.shape)
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
@@ -268,8 +271,8 @@ if __name__ == "__main__":
     parser.add_argument("--start_checkpoint", type=str, default = None)
     parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--sibr_mask_refcam", type=str, default = None)
-    parser.add_argument("--sample_step", type=float, default = 2e-3)
-    parser.add_argument("--fov_mod", type=float, default = 1.3)
+    parser.add_argument("--sample_step", type=float, default = None)
+    parser.add_argument("--fov_mod", type=float, default = None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     

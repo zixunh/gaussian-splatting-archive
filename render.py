@@ -98,8 +98,8 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--mask_path", type=str, default = None)
-    parser.add_argument("--sample_step", type=float, default = 2e-3)
-    parser.add_argument("--fov_mod", type=float, default = 1.3)
+    parser.add_argument("--sample_step", type=float, default = None)
+    parser.add_argument("--fov_mod", type=float, default = None)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 

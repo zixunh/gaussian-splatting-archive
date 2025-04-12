@@ -36,7 +36,7 @@ def readImages(renders_dir, gt_dir, renders_list, start, end):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths, use_remap=False, iters=None):
+def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
 
     full_dict = {}
     per_view_dict = {}
@@ -72,6 +72,9 @@ def evaluate(model_paths, use_remap=False, iters=None):
                 print("Remapped back to original space.")
                 gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
                 renders_dir = renders_dir.with_name(renders_dir.name + "_remap")
+            if custom_gt is not None:
+                gt_dir = Path(custom_gt)
+                print("Custom GT loaded from", gt_dir)
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
             num_rendered = len(renders_list)
             # Split into every N image to prevent one-time load in too many image that may cause OOM.
@@ -79,8 +82,10 @@ def evaluate(model_paths, use_remap=False, iters=None):
             ssims = []
             psnrs = []
             lpipss = []
+            image_namess = []
             for i in range(math.ceil(num_rendered / N)):
                 renders, gts, image_names = readImages(renders_dir, gt_dir, renders_list, i*N, min(num_rendered, (i+1)*N))
+                image_namess.extend(image_names)
 
                 for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
                     ssims.append(ssim(renders[idx], gts[idx]))
@@ -95,9 +100,9 @@ def evaluate(model_paths, use_remap=False, iters=None):
             full_dict[scene_dir][method].update({"SSIM": torch.tensor(ssims).mean().item(),
                                                     "PSNR": torch.tensor(psnrs).mean().item(),
                                                     "LPIPS": torch.tensor(lpipss).mean().item()})
-            per_view_dict[scene_dir][method].update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_names)},
-                                                        "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_names)},
-                                                        "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_names)}})
+            per_view_dict[scene_dir][method].update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_namess)},
+                                                        "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_namess)},
+                                                        "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_namess)}})
 
         with open(scene_dir + "/results.json", 'w') as fp:
             json.dump(full_dict[scene_dir], fp, indent=True)
@@ -115,5 +120,6 @@ if __name__ == "__main__":
     parser.add_argument('--model_paths', '-m', required=True, nargs="+", type=str, default=[])
     parser.add_argument('--use_remap', action='store_true')
     parser.add_argument('--iters', type=int, default = None)
+    parser.add_argument('--custom_gt', type=str, default=None)
     args = parser.parse_args()
-    evaluate(args.model_paths, args.use_remap, args.iters)
+    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt)

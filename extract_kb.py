@@ -60,12 +60,13 @@ def colmap_main(args):
     try:
         grid_map_file = Path(args.path) / "grid_fisheye.npy"
         grid_fisheye = np.load(grid_map_file)
+        print("grid map file: ", grid_map_file)
     except:
         if args.gridmap_restrict:
             raise ValueError("Grid map restrict is not supported")
         else:
             grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
-            print("Grid map file may not match with the camera intrinsic: ", grid_map_file)
+            print("WARNING: Grid map file may not match with the camera intrinsic;", grid_map_file)
 
     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
@@ -80,8 +81,8 @@ def colmap_main(args):
             X_c = grid_fisheye[j, i, 0]
             Y_c = grid_fisheye[j, i, 1]
             Z_c = grid_fisheye[j, i, 2]
-            tan_theta = X_c / Z_c
-            tan_phi = Y_c / Z_c
+            tan_theta = X_c / (Z_c + 1e-9)
+            tan_phi = Y_c / (Z_c + 1e-9)
             
             theta = np.arctan(tan_theta)
             phi = np.arctan(tan_phi)
@@ -101,7 +102,9 @@ def colmap_main(args):
             reverse_mapx.T,
             reverse_mapy.T,
             interpolation=cv2.INTER_LINEAR,
+            # interpolation=cv2.INTER_LANCZOS4,
             borderMode=cv2.BORDER_CONSTANT,
+            # borderMode=cv2.BORDER_REFLECT_101,
             borderValue=(0, 0, 0)
         )
         reversed_image_path = Path(out_image_dir) / frame
