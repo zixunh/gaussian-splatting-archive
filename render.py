@@ -106,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = 2e-3)
     parser.add_argument("--fov_mod", type=float, default = 1.3)
-    parser.add_argument("--orig_data_path", type=str, default = None, help='Data path for original images')
+    parser.add_argument("--orig_data_path", type=str, default = None)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 

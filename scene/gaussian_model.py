@@ -177,8 +177,6 @@ class GaussianModel:
         if self.pretrained_exposures is None:
             return self._exposure[self.exposure_mapping[image_name]]
         else:
-            print(self.pretrained_exposures.keys())
-            exit()
             return self.pretrained_exposures[image_name]
     
     def get_covariance(self, scaling_modifier = 1):
