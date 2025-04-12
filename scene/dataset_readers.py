@@ -327,6 +327,7 @@ def readColmapSceneInfo_fisheye(args, override_intr=None):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
+    print("folder", os.path.join(path, reading_dir))
     cam_infos_unsorted = readColmapCameras_fisheye(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), fov_mod=fov_mod, override_intr=override_intr)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 

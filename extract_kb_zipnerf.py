@@ -103,9 +103,14 @@ def colmap_main(args):
     
     fx = params[0] * ratio
     fy = params[1] * ratio
+    print("ratio", ratio)
 
-    FoVx = min(focal2halffov2(fx, width) * args.fov_mod, np.pi / 2)
-    FoVy = min(focal2halffov2(fy, height) * args.fov_mod, np.pi / 2)
+    # FoVx = min(focal2halffov2(fx, width) * args.fov_mod, np.pi / 2)
+    # FoVy = min(focal2halffov2(fy, height) * args.fov_mod, np.pi / 2)
+    # FoVx = min(focal2halffov2(fx, width * ratio) * args.fov_mod, np.pi / 2)
+    # FoVy = min(focal2halffov2(fy, height * ratio) * args.fov_mod, np.pi / 2)
+    FoVx = min(focal2halffov2(fx, width * ratio) * args.fov_mod, np.pi / 2)
+    FoVy = min(focal2halffov2(fy, height * ratio) * args.fov_mod, np.pi / 2)
     print("FOVx in deg: ", 2 * FoVx * 180 / np.pi)
     print("FOVy in deg: ", 2 * FoVy * 180 / np.pi)
 
@@ -117,10 +122,14 @@ def colmap_main(args):
         grid_map_file = Path(args.path) / "grid_fisheye.npy"
         grid_fisheye = np.load(grid_map_file)
     except:
-        grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
+        if root_dir[-1] == "/":
+            root_dir = root_dir[:-1]
+        seq_name = os.path.basename(root_dir)
+        grid_fisheye = np.load(f"./gridmap/zipnerf/{seq_name}/grid_fisheye.npy")
 
-    grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
-    grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
+    #grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
+    grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_LINEAR)
+    grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height), interpolation=cv2.INTER_LINEAR)
     grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
     
     # Reverse warping

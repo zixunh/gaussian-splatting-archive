@@ -25,16 +25,18 @@ from utils.image_utils import psnr
 import numpy as np
 import cv2
 
-def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp):
+def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, orig_data_path=None):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")
     torch.cuda.empty_cache()
 
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+    gts_ori_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt_ori")
 
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+    makedirs(gts_ori_path, exist_ok=True)
 
     render_times = []
     image_save_times = []
@@ -49,6 +51,10 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
         rendering[mask_tensor == 0] = 0.0
+        if not original_gt is None:
+            original_gt = cv2.imread(f'{orig_data_path}/{view.image_name}.JPG', -1)
+            cv2.imwrite(os.path.join(gts_ori_path, '{0:05d}'.format(idx) + ".png"), original_gt)
+        
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         image_save_end = time.time()
@@ -68,7 +74,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     max_allocated_memory_after = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory After Rendering: {max_allocated_memory_after} bytes")
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, orig_data_path=None):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         dataset.fov_mod = fov_mod
@@ -82,10 +88,10 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
         if not skip_train:
-             render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp)
+             render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
 
         if not skip_test:
-             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp)
+             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -100,10 +106,11 @@ if __name__ == "__main__":
     parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = 2e-3)
     parser.add_argument("--fov_mod", type=float, default = 1.3)
+    parser.add_argument("--orig_data_path", type=str, default = None, help='Data path for original images')
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.fov_mod, args.sample_step, args.mask_path)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.fov_mod, args.sample_step, args.mask_path, args.orig_data_path)

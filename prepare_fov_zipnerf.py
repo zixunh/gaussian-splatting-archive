@@ -124,6 +124,10 @@ def colmap_main(args):
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
     valid_mask = (valid_mask).astype(np.uint8)
+    
+    tan_theta, tan_phi = fov2tan(FoVx, FoVy, args.step * args.resize_ratio)
+    if args.resize_ratio != 1.0:
+        valid_mask = cv2.resize(valid_mask, (tan_theta.shape[0], tan_phi.shape[0]), interpolation=cv2.INTER_AREA)
 
     if valid_mask is not None:
         mask_output_path = Path(out_image_dir) / args.mask_dst
@@ -148,8 +152,10 @@ def colmap_main(args):
         )
         out_image_path = Path(out_image_dir) / frame
         out_image_path.parent.mkdir(parents=True, exist_ok=True)
-        FOV_image = FOV_image * (valid_mask[:,:,None])
         FOV_image = FOV_image.astype(np.uint8)
+        if args.resize_ratio != 1.0:
+            FOV_image = cv2.resize(FOV_image, (tan_theta.shape[0], tan_phi.shape[0]), interpolation=cv2.INTER_AREA)
+        FOV_image = FOV_image * (valid_mask[:,:,None])
         cv2.imwrite(str(out_image_path), FOV_image)
 
         ## Compute backward mapping for checking and converting back to EQ fisheye
@@ -196,5 +202,6 @@ if __name__ == "__main__":
     parser.add_argument('--mask_dst', type=str, default="fov_0.75_step_2e-3_mask.png")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
+    parser.add_argument('--resize_ratio', type=float, default=1.0)
     args = parser.parse_args()
     colmap_main(args)

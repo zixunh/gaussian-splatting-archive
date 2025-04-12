@@ -70,22 +70,28 @@ def evaluate(model_paths, use_remap=False, iters=None):
             renders_dir = method_dir / "renders"
             if use_remap:
                 print("Remapped back to original space.")
+                #gt_dir = Path('/home/choyingw/Documents/0403_clone/gaussian-splatting-archive/output/zipnerf/berlin/test/ours_30000/gt_ori')
                 gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
                 renders_dir = renders_dir.with_name(renders_dir.name + "_remap")
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
             num_rendered = len(renders_list)
             # Split into every N image to prevent one-time load in too many image that may cause OOM.
-            N = 20
+            N = 10
             ssims = []
             psnrs = []
             lpipss = []
+            image_namess = []
             for i in range(math.ceil(num_rendered / N)):
                 renders, gts, image_names = readImages(renders_dir, gt_dir, renders_list, i*N, min(num_rendered, (i+1)*N))
+                image_namess.extend(image_names)
 
                 for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
-                    ssims.append(ssim(renders[idx], gts[idx]))
-                    psnrs.append(psnr(renders[idx], gts[idx]))
-                    lpipss.append(lpips(renders[idx], gts[idx], net_type='vgg'))
+                    ssim_score = ssim(renders[idx], gts[idx])
+                    psnr_score = psnr(renders[idx], gts[idx])
+                    lpips_score = lpips(renders[idx], gts[idx], net_type='vgg')
+                    ssims.append(ssim_score)
+                    psnrs.append(psnr_score)
+                    lpipss.append(lpips_score)
 
             print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean(), ".5"))
             print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean(), ".5"))
@@ -95,9 +101,9 @@ def evaluate(model_paths, use_remap=False, iters=None):
             full_dict[scene_dir][method].update({"SSIM": torch.tensor(ssims).mean().item(),
                                                     "PSNR": torch.tensor(psnrs).mean().item(),
                                                     "LPIPS": torch.tensor(lpipss).mean().item()})
-            per_view_dict[scene_dir][method].update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_names)},
-                                                        "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_names)},
-                                                        "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_names)}})
+            per_view_dict[scene_dir][method].update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_namess)},
+                                                        "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_namess)},
+                                                        "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_namess)}})
 
         with open(scene_dir + "/results.json", 'w') as fp:
             json.dump(full_dict[scene_dir], fp, indent=True)
