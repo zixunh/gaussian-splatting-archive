@@ -51,7 +51,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
         rendering[mask_tensor == 0] = 0.0
-        if not original_gt is None:
+        if not orig_data_path is None:
             original_gt = cv2.imread(f'{orig_data_path}/{view.image_name}.JPG', -1)
             cv2.imwrite(os.path.join(gts_ori_path, '{0:05d}'.format(idx) + ".png"), original_gt)
         
@@ -91,7 +91,7 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
              render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
 
         if not skip_test:
-             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
+             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, False, orig_data_path=None)
 
 if __name__ == "__main__":
     # Set up command line argument parser
