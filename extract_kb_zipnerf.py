@@ -107,12 +107,7 @@ def colmap_main(args):
     
     fx = params[0] * ratio
     fy = params[1] * ratio
-    print("ratio", ratio)
-
-    # FoVx = min(focal2halffov2(fx, width) * args.fov_mod, np.pi / 2)
-    # FoVy = min(focal2halffov2(fy, height) * args.fov_mod, np.pi / 2)
-    # FoVx = min(focal2halffov2(fx, width * ratio) * args.fov_mod, np.pi / 2)
-    # FoVy = min(focal2halffov2(fy, height * ratio) * args.fov_mod, np.pi / 2)
+    
     FoVx = min(focal2halffov2(fx, width * ratio) * args.fov_mod, np.pi / 2)
     FoVy = min(focal2halffov2(fy, height * ratio) * args.fov_mod, np.pi / 2)
     print("FOVx in deg: ", 2 * FoVx * 180 / np.pi)
