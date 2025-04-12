@@ -29,7 +29,7 @@ if $SKIP_TRAIN; then
   echo "Load ckpt $ITERS_NUM from output/zipnerf/$SCENE_ID"
 else
   echo "Train $SCENE_ID"
-  #python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP_RAW --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN --resize_ratio $RESIZE_RATIO
+  python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP_RAW --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN --resize_ratio $RESIZE_RATIO
   python train.py -s $DATASET_DIR -m output/zipnerf/$SCENE_ID \
       --iterations $ITERS_NUM \
       --checkpoint_iterations 3000 15000 27000 30000 \
