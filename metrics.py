@@ -70,8 +70,8 @@ def evaluate(model_paths, use_remap=False, iters=None):
             renders_dir = method_dir / "renders"
             if use_remap:
                 print("Remapped back to original space.")
-                gt_dir = Path('/home/choyingw/Documents/0403_clone/gaussian-splatting-archive/output/zipnerf/berlin/test/ours_30000/gt_ori')
-                #gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
+                #gt_dir = Path('/home/choyingw/Documents/0403_clone/gaussian-splatting-archive/output/zipnerf/berlin/test/ours_30000/gt_ori')
+                gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
                 renders_dir = renders_dir.with_name(renders_dir.name + "_remap")
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
             num_rendered = len(renders_list)

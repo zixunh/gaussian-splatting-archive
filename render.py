@@ -43,7 +43,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]
+        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]     
         torch.cuda.synchronize()
         render_end = time.time()
         render_times.append((render_end - render_start)*1000)
