@@ -163,13 +163,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             # Densification
             if iteration < opt.densify_until_iter:
-                # if render_pkg["depth"].mean() < 0.5:
-                #     viewspace_point_tensor.grad[visibility_filter,:3] *= 10.0
-                # max_c, _ = viewpoint_cam.original_image.max(dim=0)
-                # avg_max_c = max_c.mean() 
-                # if avg_max_c < 0.333:
-                #     viewspace_point_tensor.grad[visibility_filter,:3] *= 10.0
-
                 # Keep track of max radii in image-space for pruning
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
