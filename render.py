@@ -25,7 +25,7 @@ from utils.image_utils import psnr
 import numpy as np
 import cv2
 
-def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, orig_data_path=None):
+def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, fetch_nearest_exp=False, orig_data_path=None):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")
     torch.cuda.empty_cache()
@@ -43,7 +43,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]     
+        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, fetch_prev_next_exp=fetch_nearest_exp)["render"]     
         torch.cuda.synchronize()
         render_end = time.time()
         render_times.append((render_end - render_start)*1000)
@@ -60,7 +60,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         image_save_end = time.time()
         image_save_times.append((image_save_end - image_save_start)*1000)
         try:
-            ps = psnr(rendering, gt).mean()
+            ps = psnr(rendering, gt.cuda()).mean()
             print(f"  PSNR: {ps}")
         except:
             pass
@@ -92,7 +92,7 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
 
         if not skip_test:
              # Set train_test_exp to False for test. If true, it will load the pretrained exposure, which only has training data's exposure.
-             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
+             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, False, fetch_nearest_exp=True, orig_data_path=None)
 
 if __name__ == "__main__":
     # Set up command line argument parser

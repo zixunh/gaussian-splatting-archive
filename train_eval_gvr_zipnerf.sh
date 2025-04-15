@@ -2,8 +2,8 @@ set -e
 SKIP_TRAIN=false
 
 # Put the sequences under datasets/zipnerf this folder. For scannetpp, please put the sequences under datasets/scannetpp
-SCENE_ID=berlin
-DATASET_DIR=/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/zipnerf/$SCENE_ID/
+SCENE_ID=fisheye/alameda
+DATASET_DIR=/media/zipnerf/$SCENE_ID/
 OUTPUT_DIR=./output/zipnerf/$SCENE_ID
 
 STEP_RAW=1e-3
@@ -71,7 +71,7 @@ python extract_kb_zipnerf.py --path $DATASET_DIR \
                      --src output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders \
                      --dst output/zipnerf/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap \
                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
-                     -r 8
+                     -r 8 -resize_factor 4
 
 # evaluation
 python metrics.py \

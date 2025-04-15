@@ -15,7 +15,7 @@ from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianR
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None, use_trained_exp=False):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None, use_trained_exp=False, fetch_prev_next_exp=False):
     """
     Render the scene. 
     
@@ -101,24 +101,28 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         rotations = rotations)
         # cov3D_precomp = cov3D_precomp)
         
-    # Apply exposure to rendered image (training only)
-    if use_trained_exp:
-        fetch_prev = int(viewpoint_camera.image_name[3:-3]) - 1
-        fetch_next = int(viewpoint_camera.image_name[3:-3]) + 1
-        name_prev = f'DSC{fetch_prev:05d}'
-        fetch_next = f'DSC{fetch_next:05d}'
-        exposure_prev = exposure_next = None
-        try:
-            exposure_prev = pc.get_exposure_from_name(name_prev)
-            exposure_next = pc.get_exposure_from_name(fetch_next)
-            exposure = (exposure_prev + exposure_next) / 2
-        except:
-            if exposure_prev is not None:
-                exposure = exposure_prev
-            else:
-                exposure = pc.get_exposure_from_name(fetch_next)
-        
+    if use_trained_exp: # Apply exposure to rendered image (training only)
+        exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
         rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
+    elif fetch_prev_next_exp: # Fetch nearest exposure to rendered image (testing)
+        try:
+            fetch_prev = int(viewpoint_camera.image_name[3:]) - 1
+            fetch_next = int(viewpoint_camera.image_name[3:]) + 1
+            name_prev = f'DSC{fetch_prev:05d}'
+            fetch_next = f'DSC{fetch_next:05d}'
+            exposure_prev = exposure_next = None
+            try:
+                exposure_prev = pc.get_exposure_from_name(name_prev)
+                exposure_next = pc.get_exposure_from_name(fetch_next)
+                exposure = (exposure_prev + exposure_next) / 2
+            except:
+                if exposure_prev is not None:
+                    exposure = exposure_prev
+                else:
+                    exposure = pc.get_exposure_from_name(fetch_next)
+            rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
+        except:
+            print("Error fetching exposure for image:", viewpoint_camera.image_name)
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
