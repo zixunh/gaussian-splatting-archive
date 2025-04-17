@@ -334,10 +334,20 @@ def readColmapSceneInfo_fisheye(args, override_intr=None):
     eval = True
     if eval:
         train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
-        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+        if not args.get_cross_cam is None:
+            import glob
+            from pathlib import Path
+            cross_cam_list = sorted(glob.glob(str(Path(args.get_cross_cam) / "images" / "*.JPG")))
+            cross_cam_list = cross_cam_list[::llffhold]
+            # exclude the prefix and extension in zipnerf
+            cross_cam_list = [c.rsplit('/', 1)[-1][7:-4] for c in cross_cam_list]
+            test_cam_infos = [c for c in cam_infos if c.image_name in cross_cam_list]
+        else:
+            test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
     else:
         train_cam_infos = cam_infos
         test_cam_infos = []
+    test_cam_infos = test_cam_infos[152:]
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
 

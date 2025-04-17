@@ -25,12 +25,14 @@ from utils.image_utils import psnr
 import numpy as np
 import cv2
 
-def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, fetch_nearest_exp=False, orig_data_path=None):
+def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, fetch_nearest_exp=False, orig_data_path=None, get_cross_cam=None):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")
     torch.cuda.empty_cache()
 
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
+    if not get_cross_cam is None:
+        render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders_cross_camera")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
     gts_ori_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt_ori")
 
@@ -42,6 +44,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     image_save_times = []
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
+        idx += 152
         render_start = time.time()
         rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, fetch_prev_next_exp=fetch_nearest_exp)["render"]     
         torch.cuda.synchronize()
@@ -51,7 +54,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
         rendering[mask_tensor == 0] = 0.0
-        if not orig_data_path is None:
+        if not orig_data_path == "":
             original_gt = cv2.imread(f'{orig_data_path}/{view.image_name}.JPG', -1)
             cv2.imwrite(os.path.join(gts_ori_path, '{0:05d}'.format(idx) + ".png"), original_gt)
         
@@ -74,12 +77,12 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     max_allocated_memory_after = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory After Rendering: {max_allocated_memory_after} bytes")
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, orig_data_path=None):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, orig_data_path=None, get_cross_cam=None):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         dataset.fov_mod = fov_mod
         dataset.sample_step = sample_step
-        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, skip_train_cameras=skip_train, skip_test_cameras=skip_test)
+        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, skip_train_cameras=skip_train, skip_test_cameras=skip_test, get_cross_cam=get_cross_cam)
         valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)
         valid_mask = torch.tensor(valid_mask)
@@ -88,11 +91,11 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
         if not skip_train:
-             render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=None)
+             render_set(dataset.model_path, valid_mask, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, orig_data_path=orig_data_path)
 
         if not skip_test:
              # Set train_test_exp to False for test. If true, it will load the pretrained exposure, which only has training data's exposure.
-             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, False, fetch_nearest_exp=True, orig_data_path=None)
+             render_set(dataset.model_path, valid_mask, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, False, fetch_nearest_exp=True, orig_data_path=orig_data_path, get_cross_cam=get_cross_cam)
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -107,11 +110,12 @@ if __name__ == "__main__":
     parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = 2e-3)
     parser.add_argument("--fov_mod", type=float, default = 1.3)
-    parser.add_argument("--orig_data_path", type=str, default = None)
+    parser.add_argument("--orig_data_path", type=str, default="")
+    parser.add_argument("--get_cross_cam", type=str, default="")
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.fov_mod, args.sample_step, args.mask_path, args.orig_data_path)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.fov_mod, args.sample_step, args.mask_path, args.orig_data_path, args.get_cross_cam)

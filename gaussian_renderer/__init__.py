@@ -106,6 +106,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
     elif fetch_prev_next_exp: # Fetch nearest exposure to rendered image (testing)
         try:
+            # +- 5 for london; otherwise +- 1
             fetch_prev = int(viewpoint_camera.image_name[3:]) - 1
             fetch_next = int(viewpoint_camera.image_name[3:]) + 1
             name_prev = f'DSC{fetch_prev:05d}'

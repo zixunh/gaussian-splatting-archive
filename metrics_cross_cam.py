@@ -1,0 +1,91 @@
+#
+# Copyright (C) 2023, Inria
+# GRAPHDECO research group, https://team.inria.fr/graphdeco
+# All rights reserved.
+#
+# This software is free for non-commercial, research and evaluation use 
+# under the terms of the LICENSE.md file.
+#
+# For inquiries contact  george.drettakis@inria.fr
+#
+
+from pathlib import Path
+import os
+from PIL import Image
+import torch
+import torchvision.transforms.functional as tf
+from utils.loss_utils import ssim
+from lpipsPyTorch import lpips
+import json
+from tqdm import tqdm
+from utils.image_utils import psnr
+from argparse import ArgumentParser
+import glob
+import math
+
+def readImages(renders_dir, gt_dir, renders_list, start, end):
+    renders = []
+    gts = []
+    image_names = []
+    for load_num in range(start, end):
+        fname = renders_list[load_num].rsplit("/")[-1]
+        render = Image.open(renders_dir / fname)
+        gt = Image.open(gt_dir / fname)
+        renders.append(tf.to_tensor(render).unsqueeze(0)[:, :3, :, :].cuda())
+        gts.append(tf.to_tensor(gt).unsqueeze(0)[:, :3, :, :].cuda())
+        image_names.append(fname)
+    return renders, gts, image_names
+
+def evaluate(args):
+    full_dict = {}
+    per_view_dict = {}
+
+    gt_dir = Path(args.gt)
+    renders_dir = Path(args.output)
+    renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
+    num_rendered = len(renders_list)
+    # Split into every N image to prevent one-time load in too many image that may cause OOM.
+    N = 10
+    ssims = []
+    psnrs = []
+    lpipss = []
+    image_namess = []
+    for i in range(math.ceil(num_rendered / N)):
+        renders, gts, image_names = readImages(renders_dir, gt_dir, renders_list, i*N, min(num_rendered, (i+1)*N))
+        image_namess.extend(image_names)
+
+        for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
+            ssim_score = ssim(renders[idx], gts[idx])
+            psnr_score = psnr(renders[idx], gts[idx])
+            lpips_score = lpips(renders[idx], gts[idx], net_type='vgg')
+            ssims.append(ssim_score)
+            psnrs.append(psnr_score)
+            lpipss.append(lpips_score)
+
+    print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean(), ".5"))
+    print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean(), ".5"))
+    print("  LPIPS: {:>12.7f}".format(torch.tensor(lpipss).mean(), ".5"))
+    print("")
+
+    full_dict.update({"SSIM": torch.tensor(ssims).mean().item(),
+                                            "PSNR": torch.tensor(psnrs).mean().item(),
+                                            "LPIPS": torch.tensor(lpipss).mean().item()})
+    per_view_dict.update({"SSIM": {name: ssim for ssim, name in zip(torch.tensor(ssims).tolist(), image_namess)},
+                                                "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_namess)},
+                                                "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_namess)}})
+
+    with open(args.output + "/../../../results_cross_camera.json", 'w') as fp:
+        json.dump(full_dict, fp, indent=True)
+    with open(args.output + "/../../../per_view_cross_camera.json", 'w') as fp:
+        json.dump(per_view_dict, fp, indent=True)
+
+if __name__ == "__main__":
+    device = torch.device("cuda:0")
+    torch.cuda.set_device(device)
+
+    # Set up command line argument parser
+    parser = ArgumentParser(description="Training script parameters")
+    parser.add_argument('--output', required=True, type=str)
+    parser.add_argument('--gt', required=True, type=str)
+    args = parser.parse_args()
+    evaluate(args)
