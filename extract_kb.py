@@ -111,6 +111,19 @@ def colmap_main(args):
         reversed_image_path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(reversed_image_path), reversed_image)
 
+    dummy_image = np.ones_like(undistorted_image)
+    mask = cv2.remap(
+        dummy_image,
+        reverse_mapx.T,
+        reverse_mapy.T,
+        interpolation=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
+    print("mask covered percentage: ", mask.sum() / (np.ones_like(mask)).sum())
+    cv2.imwrite(str(Path(out_image_dir) / "mask.png"), mask * 255)
+
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()

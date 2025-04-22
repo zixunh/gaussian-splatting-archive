@@ -76,6 +76,15 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
                 gt_dir = Path(custom_gt)
                 print("Custom GT loaded from", gt_dir)
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
+
+            mask_path = [f for f in renders_list if "mask" in f][0]
+            mask = None
+            if len(mask_path) > 0:
+                mask = Image.open(mask_path)
+                mask = tf.to_tensor(mask).unsqueeze(0)[:, :3, :, :].cuda()
+                # print(mask.shape)
+
+            renders_list = [f for f in renders_list if "mask" not in f]
             num_rendered = len(renders_list)
             # Split into every N image to prevent one-time load in too many image that may cause OOM.
             N = 20
@@ -88,9 +97,14 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
                 image_namess.extend(image_names)
 
                 for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
-                    ssims.append(ssim(renders[idx], gts[idx]))
-                    psnrs.append(psnr(renders[idx], gts[idx]))
+                    ssims.append(ssim(renders[idx], gts[idx], mask=mask))
+                    psnrs.append(psnr(renders[idx], gts[idx], mask=mask))
                     lpipss.append(lpips(renders[idx], gts[idx], net_type='vgg'))
+                    # print(renders[idx].shape)
+                    # print(gts[idx].shape)
+                    # print(ssim(renders[idx], gts[idx]).shape)
+                    # print(psnr(renders[idx], gts[idx]).shape)
+                    # print(lpips(renders[idx], gts[idx], net_type='vgg').shape)
 
             print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean(), ".5"))
             print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean(), ".5"))

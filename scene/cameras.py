@@ -157,10 +157,10 @@ class MiniCam:
         cos_theta = torch.cos(arr_theta)
         cos_phi = torch.cos(arr_phi)
         
-        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(self.data_device)
-        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(self.data_device)
-        self.tan_theta = torch.tan(arr_theta).to(self.data_device)
-        self.tan_phi = torch.tan(arr_phi).to(self.data_device)
+        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta)#.to(self.data_device)
+        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi)#.to(self.data_device)
+        self.tan_theta = torch.tan(arr_theta)#.to(self.data_device)
+        self.tan_phi = torch.tan(arr_phi)#.to(self.data_device)
         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta)
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi)
 
