@@ -30,10 +30,10 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")
     torch.cuda.empty_cache()
 
-    render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
-    if not get_cross_cam is None:
+    render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders_cross_camera")
+    if not get_cross_cam == "":
         render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders_cross_camera")
-    gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+    gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt_cross_camera")
     gts_ori_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt_ori")
 
     makedirs(render_path, exist_ok=True)
@@ -44,7 +44,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     image_save_times = []
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        idx += 152
+        #idx += 48
         render_start = time.time()
         rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, fetch_prev_next_exp=fetch_nearest_exp)["render"]     
         torch.cuda.synchronize()

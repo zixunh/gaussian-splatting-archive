@@ -290,7 +290,9 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, fov
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE, SIMPLE_PINHOLE, OPENCV_FISHEYE cameras) supported!"
 
-        image_path = os.path.join(images_folder, os.path.basename(extr.name))
+        # extrinsic of pinhole camera uses "indoor_DSCxxx.JPG"
+        # extrinsic of fisheye camera uses "DSCxxx.JPG"
+        image_path = os.path.join(images_folder, os.path.basename(extr.name)[7:])
         image_name = os.path.basename(image_path).split(".")[0]
         if not os.path.exists(image_path):
             image_path = image_path.replace(".png", ".JPG") # fix for loading zhita_5k dataset
@@ -316,7 +318,8 @@ def readColmapSceneInfo_fisheye(args, override_intr=None):
     ################
 
     try:
-        cameras_extrinsic_file = os.path.join(path, colmap_dir, "images.bin")
+        extr_path = '/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/zipnerf/official_undistorted/alameda'
+        cameras_extrinsic_file = os.path.join(extr_path, colmap_dir, "images.bin")
         cameras_intrinsic_file = os.path.join(path, colmap_dir, "cameras.bin")
         cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
@@ -327,14 +330,14 @@ def readColmapSceneInfo_fisheye(args, override_intr=None):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
-    print("folder", os.path.join(path, reading_dir))
     cam_infos_unsorted = readColmapCameras_fisheye(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), fov_mod=fov_mod, override_intr=override_intr)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     eval = True
     if eval:
         train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
-        if not args.get_cross_cam is None:
+        # only work for fisheye -> pinhole ...
+        if not args.get_cross_cam == "":
             import glob
             from pathlib import Path
             cross_cam_list = sorted(glob.glob(str(Path(args.get_cross_cam) / "images" / "*.JPG")))
@@ -347,7 +350,7 @@ def readColmapSceneInfo_fisheye(args, override_intr=None):
     else:
         train_cam_infos = cam_infos
         test_cam_infos = []
-    test_cam_infos = test_cam_infos[152:]
+    #test_cam_infos = test_cam_infos[48:]
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
 

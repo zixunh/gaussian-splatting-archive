@@ -66,12 +66,14 @@ def evaluate(model_paths, use_remap=False, iters=None):
             per_view_dict_polytopeonly[scene_dir][method] = {}
 
             method_dir = test_dir / method
-            gt_dir = method_dir/ "gt"
-            renders_dir = method_dir / "renders"
+            gt_dir = method_dir/ "gt_cross_camera"
+            renders_dir = method_dir / "renders_cross_camera"
+            # gt_dir = method_dir/ "gt"
+            # renders_dir = method_dir / "renders"
             if use_remap:
                 print("Remapped back to original space.")
-                gt_dir = gt_dir.with_name(gt_dir.name + "_ori")
-                #gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
+                #gt_dir = gt_dir.with_name(gt_dir.name + "_ori")
+                gt_dir = gt_dir.with_name(gt_dir.name + "_remap")
                 renders_dir = renders_dir.with_name(renders_dir.name + "_remap")
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
             num_rendered = len(renders_list)
@@ -105,9 +107,9 @@ def evaluate(model_paths, use_remap=False, iters=None):
                                                         "PSNR": {name: psnr for psnr, name in zip(torch.tensor(psnrs).tolist(), image_namess)},
                                                         "LPIPS": {name: lp for lp, name in zip(torch.tensor(lpipss).tolist(), image_namess)}})
 
-        with open(scene_dir + "/results.json", 'w') as fp:
+        with open(scene_dir + "/results_cross_camera.json", 'w') as fp:
             json.dump(full_dict[scene_dir], fp, indent=True)
-        with open(scene_dir + "/per_view.json", 'w') as fp:
+        with open(scene_dir + "/per_view_cross_camera.json", 'w') as fp:
             json.dump(per_view_dict[scene_dir], fp, indent=True)
         # except:
         #     print("Unable to compute metrics for model", scene_dir)

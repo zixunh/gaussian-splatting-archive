@@ -48,7 +48,7 @@ class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.sh_degree = 3
         self._source_path = ""
-        self._model_path = "./output/scannetpp/0a5c013435"
+        self._model_path = ""
         self._images = "images"
         self._depths = ""
         self._resolution = -1

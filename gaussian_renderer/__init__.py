@@ -109,8 +109,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
             # +- 5 for london; otherwise +- 1
             fetch_prev = int(viewpoint_camera.image_name[3:]) - 1
             fetch_next = int(viewpoint_camera.image_name[3:]) + 1
-            name_prev = f'DSC{fetch_prev:05d}'
-            fetch_next = f'DSC{fetch_next:05d}'
+            name_prev = f'indoor_DSC{fetch_prev:05d}.JPG'
+            fetch_next = f'indoor_DSC{fetch_next:05d}.JPG'
             exposure_prev = exposure_next = None
             try:
                 exposure_prev = pc.get_exposure_from_name(name_prev)
