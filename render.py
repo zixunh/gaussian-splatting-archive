@@ -43,17 +43,17 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         render_start = time.time()
         rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]
         torch.cuda.synchronize()
-        print(rendering.shape)
+        # print(rendering.shape)
         render_end = time.time()
         render_times.append((render_end - render_start)*1000)
 
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
-        rendering[mask_tensor == 0] = 0.0
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         image_save_end = time.time()
         image_save_times.append((image_save_end - image_save_start)*1000)
+        rendering[mask_tensor == 0] = 0.0
         try:
             ps = psnr(rendering, gt).mean()
             print(f"  PSNR: {ps}")

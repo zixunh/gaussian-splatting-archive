@@ -1,13 +1,14 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=0a5c013435
+SCENE_ID=4ef75031e3
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
-OUTPUT_DIR=./output_3dgs_undistort/scannetpp/$SCENE_ID
+OUTPUT_DIR=./output_gvr_undistort/scannetpp/$SCENE_ID
+# OUTPUT_DIR=./output_3dgs_undistort/scannetpp/$SCENE_ID
 
 STEP_TRAIN=0.002
-STEP_EVAL=0.002
+STEP_EVAL=0.0015
 
 FOVMOD_TRAIN=1.0
 FOVMOD_EVAL=1.0
@@ -19,7 +20,7 @@ FOVMAP_DIR_EVAL=undistorted_images/ #undistorted_fovmap_fov_"$FOVMOD_EVAL"_step_
 TRAIN_MASK_FN=fov_"$FOVMOD_TRAIN"_step_"$STEP_TRAIN"_mask.png
 TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"_mask.png
 
-ITERS_NUM=3000
+ITERS_NUM=30000
 
 # train
 if $SKIP_TRAIN; then
