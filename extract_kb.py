@@ -87,8 +87,8 @@ def colmap_main(args):
             theta = np.arctan(tan_theta)
             phi = np.arctan(tan_phi)
             
-            x2 = (theta + FoVx) / args.step
-            y2 = (phi + FoVy) / args.step
+            x2 = theta / args.step + (FoVx // args.step)
+            y2 = phi / args.step + (FoVy // args.step)
             reverse_mapx[i, j] = x2
             reverse_mapy[i, j] = y2
     frames = os.listdir(input_image_dir)
