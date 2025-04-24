@@ -1,10 +1,13 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=1d003b07bd
+SCENE_ID=0a5c013435 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
-OUTPUT_DIR=./output_ut/scannetpp/$SCENE_ID
+# OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
+# OUTPUT_DIR=./output_ewa/scannetpp/$SCENE_ID
+OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
+# OUTPUT_DIR=../../scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
 STEP_EVAL=0.0015
@@ -33,7 +36,6 @@ else
       --test_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
       --resolution 1 \
       --eval \
-      --exposure_lr_init 0.001 --exposure_lr_final 0.0001 --exposure_lr_delay_steps 5000 --exposure_lr_delay_mult 0.001 --train_test_exp \
       --sample_step $STEP_TRAIN --fov_mod $FOVMOD_TRAIN \
       --mask_path $DATASET_DIR$FOVMAP_DIR_TRAIN$TRAIN_MASK_FN \
       --sibr_mask_refcam "$DATASET_DIR"colmap/cameras_fish.txt 
@@ -52,7 +54,8 @@ python render.py \
     --camera_model FISHEYE \
     --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
-    --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL
+    --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
+    --train_test_exp \
 
 # wrap back to origianal space
 echo "Ground truth (kb) remapping from FoVMap"

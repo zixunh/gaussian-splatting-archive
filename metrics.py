@@ -18,7 +18,7 @@ from utils.loss_utils import ssim
 from lpipsPyTorch import lpips
 import json
 from tqdm import tqdm
-from utils.image_utils import psnr
+from utils.image_utils import psnr, artifact_sensitive_l1
 from argparse import ArgumentParser
 import glob
 import math
@@ -56,7 +56,7 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
 
         for method in os.listdir(test_dir):
             if iters is not None:
-                if str(iters) not in method:
+                if not method.endswith("ours_"+str(iters)):
                     continue
             print("Method:", method)
 
@@ -91,6 +91,7 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
             ssims = []
             psnrs = []
             lpipss = []
+            # edge_l1s = []
             image_namess = []
             for i in range(math.ceil(num_rendered / N)):
                 renders, gts, image_names = readImages(renders_dir, gt_dir, renders_list, i*N, min(num_rendered, (i+1)*N))
@@ -100,15 +101,12 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
                     ssims.append(ssim(renders[idx], gts[idx], mask=mask))
                     psnrs.append(psnr(renders[idx], gts[idx], mask=mask))
                     lpipss.append(lpips(renders[idx], gts[idx], net_type='vgg'))
-                    # print(renders[idx].shape)
-                    # print(gts[idx].shape)
-                    # print(ssim(renders[idx], gts[idx]).shape)
-                    # print(psnr(renders[idx], gts[idx]).shape)
-                    # print(lpips(renders[idx], gts[idx], net_type='vgg').shape)
+                    # edge_l1s.append(artifact_sensitive_l1(renders[idx], gts[idx], mask=mask))
 
             print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean(), ".5"))
             print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean(), ".5"))
             print("  LPIPS: {:>12.7f}".format(torch.tensor(lpipss).mean(), ".5"))
+            # print("  Edge L1: {:>12.7f}".format(torch.tensor(edge_l1s).mean(), ".5"))
             print("")
 
             full_dict[scene_dir][method].update({"SSIM": torch.tensor(ssims).mean().item(),

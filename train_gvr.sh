@@ -1,4 +1,5 @@
 set -e
+# SCENE_IDS="1d003b07bd 4ef75031e3"
 SCENE_IDS="1d003b07bd 4ef75031e3 2a1a3afad9 1f7cbbdde1 0a5c013435"
 # SCENE_IDS="0a5c013435"
 DATA_ROOT="/media/scannetpp/demo/"
@@ -12,7 +13,7 @@ for SCENE_ID in $SCENE_IDS; do
     echo "Processing scene: $SCENE_ID"
 
     DATASET_DIR="$DATA_ROOT$SCENE_ID/dslr/"
-    OUTPUT_DIR="./output_ut/scannetpp/$SCENE_ID"
+    OUTPUT_DIR="./output_ut_tight/scannetpp/$SCENE_ID"
 
     FOVMAP_DIR_TRAIN="undistorted_fovmaps_fov_${FOVMOD_TRAIN}_step_${STEP}/"
 
