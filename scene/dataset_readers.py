@@ -459,13 +459,13 @@ def readScannetppInfo(args):
         args.images = f'undistorted_fovmaps_fov_{args.fov_mod}_step_{sample_step}'
 
     override_intr = None
-    path = args.source_path
-    if args.camera_model == "PINHOLE":
-        with open(os.path.join(os.path.join(path, 'nerfstudio'),'transforms_undistorted.json')) as json_file:
-            contents = json.load(json_file)
-            fl_x = contents["fl_x"]
-            fl_y = contents["fl_y"]
-        override_intr = (fl_x, fl_y)
+    # path = args.source_path
+    # if args.camera_model == "PINHOLE":
+    #     with open(os.path.join(os.path.join(path, 'nerfstudio'),'transforms_undistorted.json')) as json_file:
+    #         contents = json.load(json_file)
+    #         fl_x = contents["fl_x"]
+    #         fl_y = contents["fl_y"]
+    #     override_intr = (fl_x, fl_y)
     return readColmapSceneInfo_fisheye(args, override_intr)
 
 sceneLoadTypeCallbacks = {

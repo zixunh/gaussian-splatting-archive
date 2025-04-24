@@ -77,10 +77,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer, width, height = network_gui.receive(extra_params)
                 if custom_cam != None:
                     net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
-                    if sibr_mask_refcam is not None:
-                        net_mask = custom_cam.get_viewpoint_mask(sibr_mask_refcam)
-                        net_mask = torch.tensor(np.repeat(net_mask[None, ...], 3, axis=0))
-                        net_image[net_mask == 0] = 0.0
+                    # if sibr_mask_refcam is not None:
+                    #     net_mask = custom_cam.get_viewpoint_mask(sibr_mask_refcam)
+                    #     net_mask = torch.tensor(np.repeat(net_mask[None, ...], 3, axis=0))
+                    #     net_image[net_mask == 0] = 0.0
                     net_image = torch.nn.functional.interpolate(net_image[None, ...], (height, width), mode='bilinear')[0]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)

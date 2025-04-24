@@ -52,7 +52,7 @@ class ModelParams(ParamGroup):
         self._images = "images"
         self._depths = ""
         self._resolution = -1
-        self._camera_model = "FISHEYE" #FISHEYE/PINHOLE
+        self._camera_model = "PINHOLE" #FISHEYE/PINHOLE
         self.dataset = "AUTO" #AUTO/COLMAP/BLENDER/SCANNETPP
         self._white_background = False
         self.train_test_exp = False

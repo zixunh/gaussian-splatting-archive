@@ -35,18 +35,18 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     scaling_modifier = scaling_modifier
     raster_settings = GaussianRasterizationSettings(
-        image_height=int(viewpoint_camera.omni_tan_phi.shape[0]), # for ray-splatting
-        image_width=int(viewpoint_camera.omni_tan_theta.shape[0]), # for ray-splatting
+        image_height=int(viewpoint_camera.image_height),
+        image_width=int(viewpoint_camera.image_width),
         tanfovx=tanfovx,
         tanfovy=tanfovy,
         bg=bg_color,
         scale_modifier=scaling_modifier,
         viewmatrix=viewpoint_camera.world_view_transform,
-        # projmatrix=viewpoint_camera.full_proj_transform,
-        omni_tan_theta=viewpoint_camera.omni_tan_theta.cuda(), # for ray-splatting
-        omni_tan_phi=viewpoint_camera.omni_tan_phi.cuda(), # for ray-splatting
-        tan_theta=viewpoint_camera.tan_theta.cuda(), # for ray-splatting
-        tan_phi=viewpoint_camera.tan_phi.cuda(), # for ray-splatting
+        projmatrix=viewpoint_camera.full_proj_transform,
+        # omni_tan_theta=viewpoint_camera.omni_tan_theta.cuda(), # for ray-splatting
+        # omni_tan_phi=viewpoint_camera.omni_tan_phi.cuda(), # for ray-splatting
+        # tan_theta=viewpoint_camera.tan_theta.cuda(), # for ray-splatting
+        # tan_phi=viewpoint_camera.tan_phi.cuda(), # for ray-splatting
         sh_degree=pc.active_sh_degree,
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
@@ -67,8 +67,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     cov3D_precomp = None
 
     if pipe.compute_cov3D_python:
-        print("We use the inverse-sigma S^(-1)Rt for rasterizer forwards and backwards; precomputing cov3D is disabled.")
-        raise NotImplementedError
+        # print("We use the inverse-sigma S^(-1)Rt for rasterizer forwards and backwards; precomputing cov3D is disabled.")
+        # raise NotImplementedError
         cov3D_precomp = pc.get_covariance(scaling_modifier)
     else:
         scales = pc.get_scaling
@@ -98,8 +98,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         colors_precomp = colors_precomp,
         opacities = opacity,
         scales = scales,
-        rotations = rotations)
-        # cov3D_precomp = cov3D_precomp)
+        rotations = rotations,
+        cov3D_precomp = cov3D_precomp)
         
     # Apply exposure to rendered image (training only)
     if use_trained_exp:
