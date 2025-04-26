@@ -1,11 +1,9 @@
 set -e
-# SCENE_IDS="1d003b07bd 4ef75031e3"
-SCENE_IDS="1d003b07bd 2a1a3afad9 1f7cbbdde1 0a5c013435"
+# SCENE_IDS="1d003b07bd 4ef75031e3 2a1a3afad9"
+SCENE_IDS="1f7cbbdde1 4ef75031e3"
 # SCENE_IDS="0a5c013435"
 DATA_ROOT="/media/scannetpp/demo/"
-
 STEP_TRAIN=0.002
-FOVMOD_TRAIN=1.0
 
 ITERS_NUM=30000
 
@@ -13,16 +11,20 @@ for SCENE_ID in $SCENE_IDS; do
     echo "Processing scene: $SCENE_ID"
 
     if [ "$SCENE_ID" = "1d003b07bd" ]; then
-        STEP_TRAIN=0.002
         FOVMOD_TRAIN=0.85
+    else
+        FOVMOD_TRAIN=1.0
+    fi
+
+    if [ "$FOVMOD_TRAIN" = "1.0" ]; then
+        # OUTPUT_DIR="./output_3dgs_undistort/scannetpp/$SCENE_ID"
+        OUTPUT_DIR="./output_gvr_undistort/scannetpp/$SCENE_ID"
+    else
+        # OUTPUT_DIR="./output_3dgs_undistort/scannetpp_fov$FOVMOD_TRAIN/$SCENE_ID"
+        OUTPUT_DIR="./output_gvr_undistort/scannetpp_fov$FOVMOD_TRAIN/$SCENE_ID"
     fi
 
     DATASET_DIR="$DATA_ROOT$SCENE_ID/dslr/"
-    if [ "$FOVMOD_TRAIN" = "1.0" ]; then
-        OUTPUT_DIR="./output_gvr_undistort/scannetpp/$SCENE_ID"
-    else
-        OUTPUT_DIR="./output_gvr_undistort/scannetpp_fov$FOVMOD_TRAIN/$SCENE_ID"
-    fi
 
     FOVMAP_DIR_TRAIN="undistorted_images/"
 
