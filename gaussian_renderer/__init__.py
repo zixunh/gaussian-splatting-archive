@@ -30,8 +30,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         pass
 
     # Set up rasterization configuration
-    tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
-    tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
+    tanfovx = math.tan(viewpoint_camera.FoVx * 0.5) 
+    tanfovy = math.tan(viewpoint_camera.FoVy * 0.5) 
+    # print("DW", viewpoint_camera.FoVx, tanfovx)
+    # exit()
 
     scaling_modifier = scaling_modifier
     raster_settings = GaussianRasterizationSettings(

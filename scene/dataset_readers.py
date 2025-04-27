@@ -528,8 +528,8 @@ def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
 
             #fovy = focal2fov(fov2focal(fovx, image.size[0]), image.size[1])
             # Full FOV in original angle
-            FovY = 2 * 2 * np.pi / 6 #fovy 
-            FovX = 2 * 2 * np.pi / 6  #fovx
+            FovY = 2 * 2 * np.pi / 2 #fovy 
+            FovX = 2 * 2 * np.pi / 2  #fovx
 
             cam_infos.append(CameraInfo_mvg(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))

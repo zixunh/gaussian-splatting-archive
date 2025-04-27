@@ -92,8 +92,8 @@ class Camera(nn.Module):
         tan_phi_map = tan_incident_angle_map * omnitan_phi_map / omnitan_incident_angle_map
         self.tan_theta = torch.Tensor(tan_theta_map).to(self.data_device).float()
         self.tan_phi = torch.Tensor(tan_phi_map).to(self.data_device).float()
-        self.omni_tan_theta = torch.Tensor(omni_theta_arr).to(self.data_device).float() * 2
-        self.omni_tan_phi = torch.Tensor(omni_phi_arr).to(self.data_device).float() * 2
+        self.omni_tan_theta = torch.Tensor(omni_theta_arr).to(self.data_device).float()
+        self.omni_tan_phi = torch.Tensor(omni_phi_arr).to(self.data_device).float()
         self.sampled_image = self.original_image
 
         print("CAV", self.omni_tan_theta)

@@ -117,8 +117,8 @@ def colmap_main(args):
     out_image_dir = Path(root_dir) / args.dst
     
     # This is half FoV in omni
-    FoVx = np.pi / 6
-    FoVy = np.pi / 6
+    FoVx = np.pi / 2
+    FoVy = np.pi / 2
     xi = 1.0
     print("omni FOVx in deg: ", 2 * FoVx * 180 / np.pi)
     print("omni FOVy in deg: ", 2 * FoVy * 180 / np.pi)
