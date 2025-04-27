@@ -27,7 +27,7 @@ class Camera(nn.Module):
         self.colmap_id = colmap_id
         self.R = R
         self.T = T
-        # Use Full FOV
+        # Use Full FOV in original angle
         self.FoVx = FoVx
         self.FoVy = FoVy
         self.image_name = image_name
@@ -64,6 +64,7 @@ class Camera(nn.Module):
 
         # for ray-splatting start
         # Change the step adjust resolution
+        # Convert to omni angle
         FoVx_omni = FoVx / 2
         FoVy_omni = FoVy / 2
         omni_theta_arr = np.arange(step / 2, FoVx_omni / 2, step)
@@ -96,8 +97,8 @@ class Camera(nn.Module):
         self.omni_tan_phi = torch.Tensor(omni_phi_arr).to(self.data_device).float()
         self.sampled_image = self.original_image
 
-        print("CAV", self.omni_tan_theta)
-        print("fefe", self.omni_tan_phi)
+        # print("CAV", self.omni_tan_theta)
+        # print("fefe", self.omni_tan_phi)
 
 
         # arr_theta, arr_phi = self.fov_sample2ray(FoVx/2, FoVy/2, step)
