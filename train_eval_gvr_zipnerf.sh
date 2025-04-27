@@ -27,7 +27,7 @@ TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"_mask.png
 ITERS_NUM=30000
 STEP_GT_CROSS_CAM=2e-3
 
-#python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP_RAW --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN --resize_ratio $RESIZE_RATIO
+python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP_RAW --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN --resize_ratio $RESIZE_RATIO
 
 #train
 # if $SKIP_TRAIN; then
@@ -90,30 +90,30 @@ STEP_GT_CROSS_CAM=2e-3
 #     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_cross_camera --step $STEP_GT_CROSS_CAM \
 #     --mask_dst ../$TRAIN_MASK_FN 
 
-python render.py \
-    -m output/zipnerf/$OUTPUT_SCENE_ID \
-    -s $DATASET_DIR \
-    --iteration $ITERS_NUM \
-    --camera_model FISHEYE \
-    --skip_train \
-    --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
-    --sample_step $STEP_RAW_EVAL --fov_mod $FOVMOD_EVAL \
-    --get_cross_cam $DATASET_DIR_PINHOLE 
+# python render.py \
+#     -m output/zipnerf/$OUTPUT_SCENE_ID \
+#     -s $DATASET_DIR \
+#     --iteration $ITERS_NUM \
+#     --camera_model FISHEYE \
+#     --skip_train \
+#     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
+#     --sample_step $STEP_RAW_EVAL --fov_mod $FOVMOD_EVAL \
+#     --get_cross_cam $DATASET_DIR_PINHOLE 
 
-# wrap back to origianal space
-python extract_pers_from_fov.py --path $DATASET_DIR_PINHOLE \
-                     --src output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera \
-                     --dst output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera_remap \
-                     --step $STEP_GT_CROSS_CAM \
-                     --skip 8 \
-                     -r 4
-python extract_pers_from_fov.py --path $DATASET_DIR_PINHOLE \
-                     --src output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera\
-                     --dst output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera_remap\
-                     --step $STEP_EVAL \
-                     -r 4
+# # wrap back to origianal space
+# python extract_pers_from_fov.py --path $DATASET_DIR_PINHOLE \
+#                      --src output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera \
+#                      --dst output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera_remap \
+#                      --step $STEP_GT_CROSS_CAM \
+#                      --skip 8 \
+#                      -r 4
+# python extract_pers_from_fov.py --path $DATASET_DIR_PINHOLE \
+#                      --src output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera\
+#                      --dst output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera_remap\
+#                      --step $STEP_EVAL \
+#                      -r 4
 
-# evaluation
-python metrics_cross_cam.py \
-    --output output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera_remap \
-    --gt output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera_remap
+# # evaluation
+# python metrics_cross_cam.py \
+#     --output output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/renders_cross_camera_remap \
+#     --gt output/zipnerf/$OUTPUT_SCENE_ID/test/ours_$ITERS_NUM/gt_cross_camera_remap

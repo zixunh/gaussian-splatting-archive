@@ -75,64 +75,68 @@ def read_intrinsics_binary(path_to_model_file):
             params = np.array(tuple(map(np.float64, params)))
     return camera_id, model_name, width, height, params
 
-def fov2tan(fovx, fovy, interval):
-    theta_arr = np.arange(interval / 2, fovx, interval)
-    theta_arr = np.sort(np.concatenate((-theta_arr, theta_arr)))
-    phi_arr = np.arange(interval / 2, fovy, interval)
-    phi_arr = np.sort(np.concatenate((-phi_arr, phi_arr)))
+def fov2tan_EQUREC(fovx, fovy, interval, xi=1.0):
+    # create a grid of theta and phi values (omni)
+    omni_theta_arr = np.arange(interval / 2, fovx, interval)
+    omni_theta_arr = np.sort(np.concatenate((-omni_theta_arr, omni_theta_arr)))
+    omni_phi_arr = np.arange(interval / 2, fovy, interval)
+    omni_phi_arr = np.sort(np.concatenate((-omni_phi_arr, omni_phi_arr)))
+    omni_theta_map, omni_phi_map = np.meshgrid(omni_theta_arr, omni_phi_arr, indexing = 'xy')
 
-    sin_t = np.sin(theta_arr)
-    cos_t = np.cos(theta_arr)
-    sin_p = np.sin(phi_arr)[:, None]
-    cos_p = np.cos(phi_arr)[:, None]
-    print("Q", cos_t.shape, cos_p.shape)
-    tan_t = sin_t / cos_t
-    tan_p = sin_p / cos_p
-    return tan_t, tan_p
+    # get the tan values of incidence angles (omni)
+    omnitan_theta_map = np.tan(omni_theta_map)
+    omnitan_phi_map = np.tan(omni_phi_map)
+    omnitan_incident_angle_map = np.sqrt(omnitan_theta_map * omnitan_theta_map + omnitan_phi_map * omnitan_phi_map)
+    omni_incident_angle_map = np.arctan(omnitan_incident_angle_map) # from 0 to pi/2
 
-def focal2halffov2(focal, pixels):
-    return pixels / 2 / focal
+    # the incident angle map is the twice of the omni incident angle map (only when xi=1.0)
+    if xi == 1.0:
+        incident_angle_map = 2.0 * omni_incident_angle_map # from 0 to pi
+    else:
+        assert xi >= 0.0, "xi should be positive"
+        assert xi < 1.0, "xi should be less than 1.0, otherwise the ray starting from the mirror point will have two intersections with the unit sphere"
+        incident_angle_map = omni_incident_angle_map + np.arcsin(xi * np.sin(omni_incident_angle_map))
+
+    tan_incident_angle_map = np.tan(incident_angle_map) # negative from pi/2 to pi, z < 0
+    # get the tan values of incidence angles (fov)
+    tan_theta_map = tan_incident_angle_map * omnitan_theta_map / omnitan_incident_angle_map
+    tan_phi_map = tan_incident_angle_map * omnitan_phi_map / omnitan_incident_angle_map
+
+    # calculate the phi map (erp)
+    z_signal = np.where(tan_incident_angle_map > 0.0, 1, -1)
+    erptan_phi_map = -tan_phi_map / np.sqrt(tan_theta_map * tan_theta_map + 1) * z_signal
+    erp_phi_map = np.arctan(erptan_phi_map)
+
+    x_signal = np.where(tan_theta_map > 0.0, 1, -1) * z_signal
+    erp_theta_map = np.arctan(tan_theta_map) + np.where(z_signal > 0.0, 0, np.pi) * x_signal
+    return erp_theta_map, erp_phi_map
 
 def colmap_main(args):
     root_dir = args.path
-    camera_dir = Path(root_dir) / "sparse" / "0" / "cameras.bin"
     input_image_dir = Path(root_dir) / args.src
     out_image_dir = Path(root_dir) / args.dst
     
-    _, _, width, height, params = read_intrinsics_binary(camera_dir)
+    # This is half FoV in omni
+    FoVx = np.pi / 6
+    FoVy = np.pi / 6
+    xi = 1.0
+    print("omni FOVx in deg: ", 2 * FoVx * 180 / np.pi)
+    print("omni FOVy in deg: ", 2 * FoVy * 180 / np.pi)
+    print("mirror param: ", xi)
 
-    fx = params[0]
-    fy = params[1]
-    cx = params[2]
-    cy = params[3]
+    theta_arr, phi_arr = fov2tan_EQUREC(FoVx, FoVy, args.step, xi=xi)
 
-    FoVx = min(focal2halffov2(fx, width) * args.fov_mod, np.pi / 2)
-    FoVy = min(focal2halffov2(fy, height) * args.fov_mod, np.pi / 2)
-    print("FOVx in deg: ", 2 * FoVx * 180 / np.pi)
-    print("FOVy in deg: ", 2 * FoVy * 180 / np.pi)
-    tan_theta, tan_phi = fov2tan(FoVx, FoVy, args.step)
-    print("L", tan_theta.shape, tan_phi.shape)
-    
-    distortion_params = params[4:]
-    kk = distortion_params
-    
     frames = sorted(os.listdir(input_image_dir))
-    radius = np.sqrt(tan_theta ** 2 + tan_phi ** 2)
-    theta = np.arctan(radius)
-    r = theta * (1.0 + kk[0] * theta**2 + kk[1] * theta**4 + kk[2] * theta**6 + kk[3] * theta**8)
-    print("r", r.shape)
-    u = tan_theta * r * fx / radius + cx
-    v = tan_phi * r * fy / radius + cy
+    example_image_path = Path(input_image_dir) / frames[0]
+    example_image = cv2.imread(str(example_image_path), -1)
+    height, width, _ = example_image.shape
+
+    u = width / (2 * np.pi) * theta_arr + width / 2
+    v = -height / (np.pi) * phi_arr + height / 2
     u_mask = np.logical_and(u >= 0, u < width)
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
     valid_mask = (valid_mask).astype(np.uint8)
-    print("M", u.shape, v.shape, valid_mask.shape)
-    exit()
-    
-    tan_theta, tan_phi = fov2tan(FoVx, FoVy, args.step * args.resize_ratio)
-    if args.resize_ratio != 1.0:
-        valid_mask = cv2.resize(valid_mask, (tan_theta.shape[0], tan_phi.shape[0]), interpolation=cv2.INTER_AREA)
 
     if valid_mask is not None:
         mask_output_path = Path(out_image_dir) / args.mask_dst
@@ -153,51 +157,13 @@ def colmap_main(args):
             u,
             v,
             interpolation=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_REFLECT_101,
+            borderMode=cv2.BORDER_CONSTANT,
         )
         out_image_path = Path(out_image_dir) / frame
         out_image_path.parent.mkdir(parents=True, exist_ok=True)
         FOV_image = FOV_image.astype(np.uint8)
-        if args.resize_ratio != 1.0:
-            FOV_image = cv2.resize(FOV_image, (tan_theta.shape[0], tan_phi.shape[0]), interpolation=cv2.INTER_AREA)
         FOV_image = FOV_image * (valid_mask[:,:,None])
         cv2.imwrite(str(out_image_path), FOV_image)
-
-        ## Compute backward mapping for checking and converting back to EQ fisheye
-        # mapx = np.zeros((width, height), dtype=np.float32)
-        # mapy = np.zeros((width, height), dtype=np.float32)
-        # for i in tqdm(range(0, width), desc="calculate_maps_inverse"):
-        #     for j in range(0, height):
-        #         x = float(i)
-        #         y = float(j)
-        #         x1 = (x - cx) / fx
-        #         y1 = (y - cy) / fy
-        #         psi = np.sqrt(x1 **2 + y1 ** 2)
-        #         if np.abs(psi) < 1e-7:
-        #             psi = 1e-7
-        #         tan_psi = np.tan(psi)
-        #         x2 = np.arctan(tan_psi * x1 / psi) / 8e-4
-        #         y2 = np.arctan(tan_psi * y1 / psi) / 8e-4
-        #         mapx[i, j] = x2
-        #         mapy[i, j] = y2
-        
-        # mapx += (FOV_image.shape[1] - 1) / 2
-        # mapy += (FOV_image.shape[0] - 1)/ 2
-        # #map = np.stack((mapx, mapy), axis=-1)
-        
-        # back_image = cv2.remap(
-        #     FOV_image,
-        #     mapx.T,
-        #     mapy.T,
-        #     interpolation=cv2.INTER_LINEAR,
-        #     borderMode=cv2.BORDER_REFLECT_101,
-        # )
-        # cv2.imwrite('backward.png', back_image)
-
-        # ref = cv2.imread('/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp_data1/0a5c013435/dslr/image_undistorted_fisheye_original/DSC01752.JPG', -1)
-        # score = psnr(back_image, ref)
-        # print(score)
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()

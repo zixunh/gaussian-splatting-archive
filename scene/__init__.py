@@ -16,7 +16,7 @@ from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
-from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON, cameraList_from_camInfos_fisheye
+from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON, cameraList_from_camInfos_fisheye, cameraList_from_camInfos_mvg
 # from colorama import Back, Fore, Style
 
 def check_colmap(args):
@@ -69,7 +69,7 @@ class Scene:
         dataset = dataset_selector(args)
         # for ray-splatting
         # print(Fore.YELLOW + f"Assuming {dataset} data set!" + Style.RESET_ALL)
-        scene_info = sceneLoadTypeCallbacks[dataset](args)
+        scene_info = sceneLoadTypeCallbacks["OpenMVG"](args.source_path, args.white_background, args.eval)
 
         if not self.loaded_iter:
             with open(scene_info.ply_path, 'rb') as src_file, open(os.path.join(self.model_path, "input.ply") , 'wb') as dest_file:
@@ -94,10 +94,10 @@ class Scene:
         for resolution_scale in resolution_scales:
             if not skip_train_cameras:
                 print("Loading Training Cameras")
-                self.train_cameras[resolution_scale] = cameraList_from_camInfos_fisheye(scene_info.train_cameras, resolution_scale, False, False, args)
+                self.train_cameras[resolution_scale] = cameraList_from_camInfos_mvg(scene_info.train_cameras, resolution_scale, args)
             if not skip_test_cameras:
                 print("Loading Test Cameras")
-                self.test_cameras[resolution_scale] = cameraList_from_camInfos_fisheye(scene_info.test_cameras, resolution_scale, False, True, args)
+                self.test_cameras[resolution_scale] = cameraList_from_camInfos_mvg(scene_info.test_cameras, resolution_scale, args)
         
         if self.loaded_iter:
             self.gaussians.load_ply(os.path.join(self.model_path,

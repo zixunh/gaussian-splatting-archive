@@ -53,13 +53,24 @@ class CameraInfo_fisheye(NamedTuple):
     depth_path: str = ""
     is_test: bool = False
 
+class CameraInfo_mvg(NamedTuple):
+    uid: int
+    R: np.array
+    T: np.array
+    FovY: np.array
+    FovX: np.array
+    image: np.array
+    image_path: str
+    image_name: str
+    width: int
+    height: int
+
 class SceneInfo(NamedTuple):
     point_cloud: BasicPointCloud
     train_cameras: list
     test_cameras: list
     nerf_normalization: dict
     ply_path: str
-    is_nerf_synthetic: bool
 
 class SceneInfo_fisheye(NamedTuple):
     point_cloud: BasicPointCloud
@@ -144,8 +155,10 @@ def fetchPly(path):
     plydata = PlyData.read(path)
     vertices = plydata['vertex']
     positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
+    # positions = np.vstack([vertices['x'], -vertices['z'], vertices['y']]).T
     colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
-    normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
+    # normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
+    normals = np.zeros_like(positions)
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
 def storePly(path, xyz, rgb):
@@ -483,8 +496,109 @@ def readScannetppInfo(args):
         override_intr = (fl_x, fl_y)
     return readColmapSceneInfo_fisheye(args, override_intr)
 
+def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
+    cam_infos = []
+
+    with open(os.path.join(path, extrinsicsfile)) as json_file:
+        contents = json.load(json_file)
+        # fovx = contents["camera_angle_x"]
+        # fovx = 1.59451063 # 0.8279103882874479
+        
+        #fovx = 3.13768641
+
+        frames = contents["extrinsics"]
+        for idx, frame in enumerate(frames):
+            cam_key = frame["key"]
+            #cam_name = os.path.join(path, 'images', cam_dict[cam_key])
+            cam_name = os.path.join(path, 'fovmaps_fov_1.0_step_3e-3', cam_dict[cam_key])
+
+            R = np.array(frame["value"]["rotation"]).T
+            T = -np.array(frame["value"]["rotation"]) @ np.array(frame["value"]["center"])
+
+            image_path = os.path.join(path, cam_name)
+            image_name = Path(cam_name).stem
+            image = Image.open(image_path)
+
+            im_data = np.array(image.convert("RGBA"))
+            bg = np.array([1,1,1]) if white_background else np.array([0, 0, 0])
+
+            norm_data = im_data / 255.0
+            arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
+            image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
+
+            #fovy = focal2fov(fov2focal(fovx, image.size[0]), image.size[1])
+            # Full FOV in original angle
+            FovY = 2 * 2 * np.pi / 6 #fovy 
+            FovX = 2 * 2 * np.pi / 6  #fovx
+
+            cam_infos.append(CameraInfo_mvg(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+            
+    return cam_infos
+
+def readOpenMVGInfo(path, white_background, eval):
+    print("Reading Transforms from OpenMVG")
+
+    my_views = os.path.join(path, "data_views.json")
+    camfile_dict = {}
+    with open(my_views) as views:
+        json_views = json.load(views)
+        camview_list = json_views["views"]
+        for camview in camview_list:
+            camfile_dict[camview["key"]] = camview["value"]["ptr_wrapper"]["data"]["filename"]
+
+    cam_infos_unsorted = readCamerasFromOpenMVG(path, "data_extrinsics.json", camfile_dict, white_background)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
+    
+    try:
+        train_file = os.path.join(path, 'train.txt')
+        test_file = os.path.join(path, 'test.txt')
+        with open(train_file, 'r') as f:
+            train_name_list = f.read().splitlines() 
+        with open(test_file, 'r') as f:
+            test_name_list = f.read().splitlines() 
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if c.image_name in train_name_list]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if c.image_name in test_name_list]
+        
+    except:
+        raise AssertionError("Please Specify train test split")
+        
+    print(f"# of Train: {len(train_cam_infos)}, \t# of Test: {len(test_cam_infos)}")
+
+    if not eval:
+        train_cam_infos.extend(test_cam_infos)
+        test_cam_infos = []
+
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+    if os.path.exists(os.path.join(path, "pcd.ply")):
+        print("Points without camera position (Green points) are initialized")
+        ply_path = os.path.join(path, "pcd.ply")
+    else:
+        ply_path = os.path.join(path, "colorized.ply")
+
+    if not os.path.exists(ply_path):
+        raise FileNotFoundError('No initial pcd file found!')
+        # # Since this data set has no colmap data, we start with random points
+        # num_pts = 100_000
+        # print(f"Generating random point cloud ({num_pts})...")
+        
+        # # We create random points inside the bounds of the synthetic Blender scenes
+        # xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
+        # shs = np.random.random((num_pts, 3)) / 255.0
+        # pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
+        # storePly(ply_path, xyz, SH2RGB(shs) * 255)
+    pcd = fetchPly(ply_path)
+
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
-    "Scannetpp" : readScannetppInfo
+    "Scannetpp" : readScannetppInfo,
+    "OpenMVG" : readOpenMVGInfo
 }

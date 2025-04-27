@@ -114,7 +114,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]   
-        image[valid_mask == 0] = 0.0
+        #image[valid_mask == 0] = 0.0
+        
         # Loss
         gt_image = viewpoint_cam.sampled_image.cuda()
         Ll1 = l1_loss(image, gt_image)
