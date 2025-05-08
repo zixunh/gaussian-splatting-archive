@@ -117,9 +117,9 @@ def colmap_main(args):
     input_image_dir = Path(root_dir) / args.src
     out_image_dir = Path(root_dir) / args.dst
     
-    FoVx = np.pi /2
-    FoVy = np.pi /2
-    xi = 1.0
+    FoVx = np.pi /3
+    FoVy = np.pi /3
+    xi = 0.5
     print("omni FOVx in deg: ", 2 * FoVx * 180 / np.pi)
     print("omni FOVy in deg: ", 2 * FoVy * 180 / np.pi)
     print("mirror param: ", xi)
