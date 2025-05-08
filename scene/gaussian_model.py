@@ -124,13 +124,60 @@ class GaussianModel:
         return self.opacity_activation(self._opacity)
     
     @property
+    def get_h_scaled(self):
+        scale_sq = torch.square(self.scaling_activation(self._scaling))
+        h_cov_scaling = torch.sqrt(scale_sq.prod(dim=1) / (scale_sq + 1e-7).prod(dim=1))
+        return h_cov_scaling[..., None]
+    
+    @property
+    def get_scaled_opacity(self):
+        opacity = self.opacity_activation(self._opacity)
+        h_scale = self.get_h_scaled
+        return opacity * h_scale
+    
+    @property
     def get_exposure(self):
         return self._exposure
+    
+    def inv_opacity(self, y):
+        x = (-(1 - y).clip(min=1e-10).log()).clip(min=0)
+        return x
+    
+    def get_major_axis(self, scales): 
+        # scales = scales.detach()
+        # convert scales to max length. Each element corresponds to the length of each segment in xyz
+
+        max_integration_length = scales.max(dim=-1, keepdim=True).values * 2
+
+        return max_integration_length
+
+    def get_major_axis_density(self, opacity, scales):
+        scales = scales.detach()
+
+        max_integration_length = self.get_major_axis(scales)
+
+        densities = self.inv_opacity(opacity) / max_integration_length
+
+        return densities.reshape(-1)
+        
+    def get_minor_axis_density(self, opacity, scales):
+        scales = scales.detach()
+        min_integration_length = scales.min(dim=-1, keepdim=True).values * 2
+
+        densities = self.inv_opacity(opacity).reshape(min_integration_length.shape) / min_integration_length
+        return densities
+        
+    def divide_opacity(self, opacity, scales):
+        density = self.get_minor_axis_density(opacity, scales).reshape(opacity.shape) / 2
+        minor_axis = scales.min(dim=-1).values.reshape(opacity.shape)
+        minor_opacity = (1 - (-density * minor_axis).exp()).clip(min=0, max=0.99).reshape(opacity.shape)
+        return minor_opacity
 
     def get_exposure_from_name(self, image_name):
         if self.pretrained_exposures is None:
             return self._exposure[self.exposure_mapping[image_name]]
         else:
+            print("pretrained length", len(self.pretrained_exposures))
             return self.pretrained_exposures[image_name]
     
     def get_covariance(self, scaling_modifier = 1):
@@ -142,6 +189,15 @@ class GaussianModel:
 
     def create_from_pcd(self, pcd : BasicPointCloud, cam_infos : int, spatial_lr_scale : float):
         self.spatial_lr_scale = spatial_lr_scale
+        # arr1 = np.asarray(pcd.points)
+        # norm = np.linalg.norm(arr1, axis=1)
+        # mean, std = norm.mean(), norm.std()
+        # mask = norm > mean + 1.5 * std
+        # print("nums of points: ", mask.sum())
+        
+        # fused_point_cloud = torch.tensor(np.asarray(pcd.points)[mask]).float().cuda()
+        # fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)[mask]).float().cuda())
+
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
@@ -150,6 +206,7 @@ class GaussianModel:
 
         print("Number of points at initialisation : ", fused_point_cloud.shape[0])
 
+        #dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)[mask]).float().cuda()), 0.0000001)
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
@@ -243,7 +300,7 @@ class GaussianModel:
         PlyData([el]).write(path)
 
     def reset_opacity(self):
-        opacities_new = self.inverse_opacity_activation(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
+        opacities_new = self.inverse_opacity_activation(torch.min(self.get_opacity, torch.ones_like(self.get_opacity) / self.get_h_scaled * 0.01))
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
@@ -391,14 +448,16 @@ class GaussianModel:
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
-    def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
+    def densify_and_split(self, grads, grad_threshold, scene_extent, N=2, min_opacity=0.01):
         n_init_points = self.get_xyz.shape[0]
         # Extract points that satisfy the gradient condition
         padded_grad = torch.zeros((n_init_points), device="cuda")
         padded_grad[:grads.shape[0]] = grads.squeeze()
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
-                                              torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
+                                              torch.min(self.get_scaling, dim=1).values * 3 > self.percent_dense*scene_extent / 0.7*N)
+        cond = (self.get_opacity > min_opacity).reshape(-1)
+        selected_pts_mask = torch.logical_and(selected_pts_mask, cond)
 
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         means =torch.zeros((stds.size(0), 3),device="cuda")
@@ -409,23 +468,39 @@ class GaussianModel:
         new_rotation = self._rotation[selected_pts_mask].repeat(N,1)
         new_features_dc = self._features_dc[selected_pts_mask].repeat(N,1,1)
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N,1,1)
-        new_opacity = self._opacity[selected_pts_mask].repeat(N,1)
+        
+        div_scaling = self.scaling_inverse_activation(
+            (self.get_scaling[selected_pts_mask] / 0.7*N).clip(min=5e-3))
+        replace_opacity = self.get_opacity
+        divided_opacities = self.divide_opacity(
+            replace_opacity[selected_pts_mask], div_scaling).reshape(-1, 1)
+        new_opacity = self.inverse_opacity_activation(divided_opacities.repeat(N,1))
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation)
 
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
 
-    def densify_and_clone(self, grads, grad_threshold, scene_extent):
+    def densify_and_clone(self, grads, grad_threshold, scene_extent, min_clone_opacity=0.01):
         # Extract points that satisfy the gradient condition
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
-                                              torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
-        
+                                              torch.min(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent/3)
+        cond = (1 - (1-self.get_opacity).sqrt() > min_clone_opacity).reshape(-1)
+        selected_pts_mask = torch.logical_and(selected_pts_mask, cond)
         new_xyz = self._xyz[selected_pts_mask]
         new_features_dc = self._features_dc[selected_pts_mask]
         new_features_rest = self._features_rest[selected_pts_mask]
-        new_opacities = self._opacity[selected_pts_mask]
+
+        replace_opacity = self.get_opacity
+        divided_opacities = self.divide_opacity(replace_opacity[selected_pts_mask], self.get_scaling[selected_pts_mask]).reshape(-1, 1)
+        replace_opacity[selected_pts_mask] = divided_opacities
+        raw_opacity = self.inverse_opacity_activation(replace_opacity)
+        optimizable_tensors = self.replace_tensor_to_optimizer(raw_opacity, "opacity")
+        self._opacity = optimizable_tensors["opacity"]
+        new_opacities = self.inverse_opacity_activation(divided_opacities)
+        #new_opacities = self._opacity[selected_pts_mask]
+
         new_scaling = self._scaling[selected_pts_mask]
         new_rotation = self._rotation[selected_pts_mask]
 
@@ -438,7 +513,8 @@ class GaussianModel:
         self.densify_and_clone(grads, max_grad, extent)
         self.densify_and_split(grads, max_grad, extent)
 
-        prune_mask = (self.get_opacity < min_opacity).squeeze()
+        # prune_mask = (self.get_opacity < min_opacity).squeeze()
+        prune_mask = (self.get_scaled_opacity < min_opacity).squeeze()
         if max_screen_size:
             big_points_vs = self.max_radii2D > max_screen_size
             big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
@@ -448,5 +524,9 @@ class GaussianModel:
         torch.cuda.empty_cache()
 
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
-        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
+        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:3], dim=-1, keepdim=True)
+        self.denom[update_filter] += 1
+    
+    def add_densification_stats_direct(self, grad, update_filter):
+        self.xyz_gradient_accum[update_filter] += torch.norm(grad[update_filter,:2], dim=-1, keepdim=True)
         self.denom[update_filter] += 1

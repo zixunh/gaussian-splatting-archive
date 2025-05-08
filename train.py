@@ -22,13 +22,18 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+import numpy as np
+import cv2
+import math
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
 except ImportError:
     TENSORBOARD_FOUND = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, idf):
+    save_folder = f'tmp_{idf}'
+    os.makedirs(save_folder, exist_ok=True)
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -100,15 +105,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
 
-        # if iteration % 200 == 0:
-        #     import numpy as np
-        #     import cv2
-        #     sv = image.permute(1,2,0).detach().cpu().numpy()
-        #     sv = np.clip(sv, 0.0, 1.0)
-        #     print(sv.max(), sv.min())
-        #     sv = (sv * 255).astype(np.uint8)
-
-        #     cv2.imwrite(f'/home/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
+        if iteration % 500 == 0:
+            sv = image.permute(1,2,0).detach().cpu().numpy()
+            sv = np.clip(sv, 0.0, 1.0)
+            sv = (sv * 255).astype(np.uint8)
+            cv2.imwrite(f'./{save_folder}/tmp_{iteration:06d}.png', sv[:,:,[2,1,0]])
 
         # Depth regularization
         Ll1depth_pure = 0.0
@@ -124,6 +125,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         else:
             Ll1depth = 0
 
+        # if render_pkg["depth"].mean() < 0.5:
+        #     loss *= 5.0
+        # max_c, _ = viewpoint_cam.original_image.max(dim=0)
+        # avg_max_c = max_c.mean() 
+        # if avg_max_c < 0.333:
+        #     loss *= 5.0
+        
         loss.backward()
 
         iter_end.record()
@@ -147,6 +155,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             # Densification
             if iteration < opt.densify_until_iter:
+                # if render_pkg["depth"].mean() < 0.5:
+                #     viewspace_point_tensor.grad[visibility_filter,:3] *= 3.0
+                # # max_c, _ = viewpoint_cam.original_image.max(dim=0)
+                # # avg_max_c = max_c.mean() 
+                # if avg_max_c < 0.333:
+                #     viewspace_point_tensor.grad[visibility_filter,:3] *= 3.0
+
+                
                 # Keep track of max radii in image-space for pruning
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
@@ -241,12 +257,14 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    #parser.add_argument("--test_iterations", nargs="+", type=int, default=[500, 1200, 2000, 2800, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7_000, 7500, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 18000, 21000, 24000, 27000, 29000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[500, 2000, 6000, 9000, 15000, 27000, 30_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[15_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--idf", type=str, default = '1')
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -259,7 +277,7 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.idf)
 
     # All done
     print("\nTraining complete.")

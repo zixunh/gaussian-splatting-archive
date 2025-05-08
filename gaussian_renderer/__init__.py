@@ -14,8 +14,9 @@ import math
 from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
+import time
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None, use_trained_exp=False):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None, use_trained_exp=False, fetch_prev_next_exp=False):
     """
     Render the scene. 
     
@@ -84,7 +85,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         colors_precomp = override_color
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii, depth_image = rasterizer(
+    rendered_image, radii, depth_image, kernel_times = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -93,21 +94,51 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
+    torch.cuda.synchronize()
+    
+    print("kernel times", kernel_times)
         
     # Apply exposure to rendered image (training only)
-    if use_trained_exp:
-        exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
-        rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
+    # if use_trained_exp: # Apply exposure to rendered image (training only)
+    #     exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
+    #     rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
+    # elif fetch_prev_next_exp: # Fetch nearest exposure to rendered image (testing)
+    #     try:
+    #         # +- 5 for london; otherwise +- 1
+    #         # strip "indoor_" and ".JPG" from the filename
+    #         fetch_prev = int(viewpoint_camera.image_name[10: -4]) - 1
+    #         fetch_next = int(viewpoint_camera.image_name[10: -4]) + 1
+            
+    #         name_prev = f'indoor_DSC{fetch_prev:05d}.JPG'
+    #         fetch_next = f'indoor_DSC{fetch_next:05d}.JPG'
+    #         exposure_prev = exposure_next = None
+    #         try:
+    #             exposure_prev = pc.get_exposure_from_name(name_prev)
+    #             exposure_next = pc.get_exposure_from_name(fetch_next)
+    #             exposure = (exposure_prev + exposure_next) / 2
+    #         except:
+    #             if exposure_prev is not None:
+    #                 exposure = exposure_prev
+    #             else:
+    #                 exposure = pc.get_exposure_from_name(fetch_next)
+    #         rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
+    #     except:
+    #         print("Error fetching exposure for image:", viewpoint_camera.image_name)
+
+    # if use_trained_exp:
+    #     exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
+    #     rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
-    rendered_image = rendered_image.clamp(0, 1)
+    #rendered_image = rendered_image.clamp(0, 1)
     out = {
         "render": rendered_image,
-        "viewspace_points": screenspace_points,
-        "visibility_filter" : (radii > 0).nonzero(),
-        "radii": radii,
-        "depth" : depth_image
+        # "viewspace_points": screenspace_points,
+        # "visibility_filter" : (radii > 0).nonzero(),
+        # "radii": radii,
+        # "depth" : depth_image,
+        "time": kernel_times
         }
     
     return out
