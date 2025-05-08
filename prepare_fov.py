@@ -124,6 +124,7 @@ def colmap_main(args):
     u_mask = np.logical_and(u >= 0, u < width)
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
+    print("mask covered percentage: ", valid_mask.sum() / (np.ones_like(valid_mask)).sum())
 
     if valid_mask is not None:
         mask_output_path = Path(out_image_dir) / args.mask_dst

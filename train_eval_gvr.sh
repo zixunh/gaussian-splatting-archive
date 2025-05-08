@@ -1,19 +1,22 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=0a5c013435 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
+SCENE_ID=4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_ewa/scannetpp/$SCENE_ID
+# OUTPUT_DIR=./output_fov/scannetpp_fov0.85/$SCENE_ID
+# OUTPUT_DIR=./output_fov/scannetpp/$SCENE_ID
+# OUTPUT_DIR=./output_fullfov_updated/scannetpp/$SCENE_ID
 OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
 # OUTPUT_DIR=../../scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
 STEP_EVAL=0.0015
 
-FOVMOD_TRAIN=1.3 #1.0 #1.3
-FOVMOD_EVAL=2.0 #1.0 #2.0
+FOVMOD_TRAIN=1.3 #0.85 #0.85 #1.0 #1.3 #1.0 #1.3
+FOVMOD_EVAL=2.0 #0.85 #0.85 #1.0 #2.0 #1.0 #2.0
 
 FOVMAP_DIR_TRAIN=undistorted_fovmaps_fov_"$FOVMOD_TRAIN"_step_"$STEP_TRAIN"/
 FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"/

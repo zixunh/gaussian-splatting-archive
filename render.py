@@ -38,6 +38,8 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     render_times = []
     image_save_times = []
+    mask_covered = mask_tensor.sum() / (torch.ones_like(mask_tensor) * 255.0).sum()
+    print("mask covered percentage: ", mask_covered)
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
@@ -61,7 +63,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     
     means = torch.tensor(render_times).mean()
     maxs = torch.tensor(render_times).max()
-    FPS = 1.0 / (means / 1000.0)
+    FPS = 1.0 / (means / 1000.0) / mask_covered
     print(f"  AVG_Render_Time : {means} ms")
     print(f"  MAX_Render_Time : {maxs} ms")
     print(f"  FPS: {FPS}")   
