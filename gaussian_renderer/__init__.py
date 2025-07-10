@@ -42,16 +42,17 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         bg=bg_color,
         scale_modifier=scaling_modifier,
         viewmatrix=viewpoint_camera.world_view_transform,
-        # projmatrix=viewpoint_camera.full_proj_transform,
-        omni_tan_theta=viewpoint_camera.omni_tan_theta.cuda(), # for ray-splatting
-        omni_tan_phi=viewpoint_camera.omni_tan_phi.cuda(), # for ray-splatting
-        tan_theta=viewpoint_camera.tan_theta.cuda(), # for ray-splatting
-        tan_phi=viewpoint_camera.tan_phi.cuda(), # for ray-splatting
+        projmatrix=viewpoint_camera.full_proj_transform,
+        # omni_tan_theta=viewpoint_camera.omni_tan_theta.cuda(), # for ray-splatting
+        # omni_tan_phi=viewpoint_camera.omni_tan_phi.cuda(), # for ray-splatting
+        # tan_theta=viewpoint_camera.tan_theta.cuda(), # for ray-splatting
+        # tan_phi=viewpoint_camera.tan_phi.cuda(), # for ray-splatting
+        is_fisheye=True,
         sh_degree=pc.active_sh_degree,
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=pipe.debug,
-        antialiasing=pipe.antialiasing
+        # antialiasing=pipe.antialiasing
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
@@ -91,7 +92,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         colors_precomp = override_color
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii, depth_image = rasterizer(
+    rendered_image, radii, kernel_time= rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -100,6 +101,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations)
         # cov3D_precomp = cov3D_precomp)
+    # print(kernel_time)
         
     # Apply exposure to rendered image (training only)
     if use_trained_exp:
@@ -114,7 +116,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         "viewspace_points": screenspace_points,
         "visibility_filter" : (radii > 0).nonzero(),
         "radii": radii,
-        "depth" : depth_image
+        # "depth" : depth_image,
+        "time": kernel_time
         }
     
     return out
