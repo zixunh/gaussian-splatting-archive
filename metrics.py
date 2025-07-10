@@ -36,7 +36,7 @@ def readImages(renders_dir, gt_dir, renders_list, start, end):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
+def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, custom_mask=None, reverse_mask=False):
 
     full_dict = {}
     per_view_dict = {}
@@ -52,7 +52,7 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
         full_dict_polytopeonly[scene_dir] = {}
         per_view_dict_polytopeonly[scene_dir] = {}
 
-        test_dir = Path(scene_dir) / "test"
+        test_dir = Path(scene_dir) #/ "test"
 
         for method in os.listdir(test_dir):
             if iters is not None:
@@ -77,12 +77,16 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
                 print("Custom GT loaded from", gt_dir)
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
 
-            mask_path = [f for f in renders_list if "mask" in f][0]
+            # mask_path = [f for f in renders_list if "mask" in f][0]
+            if custom_mask is not None:
+                mask_path = custom_mask
             mask = None
             if len(mask_path) > 0:
                 mask = Image.open(mask_path)
                 mask = tf.to_tensor(mask).unsqueeze(0)[:, :3, :, :].cuda()
-                # print(mask.shape)
+            if reverse_mask:
+                mask = 1 - mask
+                print(mask[mask == 1].sum())
 
             renders_list = [f for f in renders_list if "mask" not in f]
             num_rendered = len(renders_list)
@@ -131,7 +135,9 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Training script parameters")
     parser.add_argument('--model_paths', '-m', required=True, nargs="+", type=str, default=[])
     parser.add_argument('--use_remap', action='store_true')
+    parser.add_argument('--reverse_mask', action='store_true')
     parser.add_argument('--iters', type=int, default = None)
     parser.add_argument('--custom_gt', type=str, default=None)
+    parser.add_argument('--custom_mask', type=str, default=None)
     args = parser.parse_args()
-    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt)
+    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt, args.custom_mask, args.reverse_mask)
