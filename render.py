@@ -77,6 +77,7 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
         dataset.sample_step = sample_step
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, skip_train_cameras=skip_train, skip_test_cameras=skip_test)
         valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        print(valid_mask, mask_path)
         valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)
         valid_mask = torch.tensor(valid_mask)
 

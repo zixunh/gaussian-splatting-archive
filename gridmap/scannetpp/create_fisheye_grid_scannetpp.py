@@ -60,12 +60,13 @@ def chunk(grid):
     return xy
 
 if __name__=="__main__":
-    scannetpp_data_path = 'datasets/scannetpp/data'
+    scannetpp_data_path = '/media/projectaria_tools_aria-scenes_data/scannetpp_formatted/'
     target_scene_names = []  # if not empty, only process these scenes
     # target_scene_names = ['1f7cbbdde1', '4ef75031e3']  # if not empty, only process these scenes
     # use half resolution to save memory and speed up
-    H = int(1168 / 2)
-    W = int(1752 / 2)
+    print(target_scene_names)
+    H = int(1440 / 2)
+    W = int(1440 / 2)
     # [H, W]
     u, v = np.meshgrid(np.arange(W), np.arange(H))
     # [H*W]
@@ -83,7 +84,7 @@ if __name__=="__main__":
             continue
         
         print(f"Processing {scene_name}")
-        scene_transform_file = os.path.join(scene_dir, 'dslr/nerfstudio/transforms.json')
+        scene_transform_file = os.path.join(scene_dir, 'nerfstudio/transforms.json')
         scene_info = json.load(open(scene_transform_file))
     
         k1 = scene_info['k1']
@@ -120,7 +121,7 @@ if __name__=="__main__":
         z[isnan] = 1.
         pcd = torch.cat((xys, z[:, None], isnan[:, None]), dim=1)
         print("saving grid")
-        np.save(os.path.join(scene_dir, 'dslr/grid_fisheye.npy'), pcd.detach().cpu().numpy().reshape(H, W, 4))
+        np.save(os.path.join(scene_dir, 'grid_fisheye.npy'), pcd.detach().cpu().numpy().reshape(H, W, 4))
 
         """
             Treating each ray as a point on an unit sphere, apply forward distortion and project to compute the approximation error using the lookup table
@@ -137,4 +138,4 @@ if __name__=="__main__":
         plt.imshow(error_map)
         print(f'max error: {error_map.max()}')
         # plt.show()
-        plt.savefig(os.path.join(scene_dir, 'dslr/error_map.png'))
+        plt.savefig(os.path.join(scene_dir, 'error_map.png'))

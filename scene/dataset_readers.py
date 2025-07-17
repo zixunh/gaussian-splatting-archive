@@ -274,19 +274,23 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, fov
             focal_length_x = intr.params[0]
             FovY = focal2fov(focal_length_x, height)
             FovX = focal2fov(focal_length_x, width)
+            print("\n SIMPLE_PINHOLE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
         elif intr.model=="PINHOLE":
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
             FovY = focal2fov(focal_length_y, height)
             FovX = focal2fov(focal_length_x, width)
+            print("\n PINHOLE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
         elif intr.model=="OPENCV_FISHEYE": #SCANNET++
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
             # for ray-splatting start
             # Change the fov to match the undistorted image
+            # FovY = min(np.pi, focal2fov2(focal_length_y, height) * fov_mod) #/ 0.8
             FovY = min(np.pi, focal2fov2(focal_length_y, height) * fov_mod) #/ 0.8
+            # FovX = min(np.pi, focal2fov2(focal_length_x, width) * fov_mod) #/ 0.8
             FovX = min(np.pi, focal2fov2(focal_length_x, width) * fov_mod) #/ 0.8
-            # print("loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
+            print("\n OPENCV_FISHEYE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE, SIMPLE_PINHOLE, OPENCV_FISHEYE cameras) supported!"
 

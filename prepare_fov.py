@@ -17,6 +17,23 @@ def psnr(img1, img2):
     PIXEL_MAX = 255.0
     return 20 * np.log10(PIXEL_MAX / np.sqrt(mse))
 
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+
+
+def generate_elliptical_mask_bool(height, width, scale=1.0):
+    Y, X = np.ogrid[:height, :width]
+    center_x, center_y = width / 2, height / 2
+    a, b = width / 2, height / 2  # semi-major and semi-minor axes
+
+    a*= scale  # scale the axes to create an elliptical mask
+    b*= scale  # scale the axes to create an elliptical mask
+
+    mask = ((X - center_x)**2) / (a**2) + ((Y - center_y)**2) / (b**2) <= 1
+    return mask  # dtype=bool, shape=(H,W)
+
+
 def read_intrinsics_text(path):
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
@@ -124,6 +141,13 @@ def colmap_main(args):
     u_mask = np.logical_and(u >= 0, u < width)
     v_mask =  np.logical_and(v >= 0, v < height) 
     valid_mask = u_mask & v_mask
+    u, v = u.astype(np.float32), v.astype(np.float32)
+
+    #remap ego mask
+    ego_mask = generate_elliptical_mask_bool(height, width).astype(np.float32)
+    ego_mask = cv2.remap(ego_mask, u, v, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
+    valid_mask = valid_mask & (ego_mask > 0.5)
+
     print("mask covered percentage: ", valid_mask.sum() / (np.ones_like(valid_mask)).sum())
 
     if valid_mask is not None:
@@ -133,8 +157,6 @@ def colmap_main(args):
         print("Save mask to:", mask_output_path, "with shape: ", valid_mask.shape)
     else:
         print("Warning: valid_mask is None")
-
-    u, v = u.astype(np.float32), v.astype(np.float32)
 
     for frame in tqdm(frames, desc="frame"):
         image_path = Path(input_image_dir) / frame
@@ -153,40 +175,8 @@ def colmap_main(args):
         FOV_image = FOV_image.astype(np.uint8)
         cv2.imwrite(str(out_image_path), FOV_image)
 
-        ## Compute backward mapping for checking and converting back to EQ fisheye
-        # mapx = np.zeros((width, height), dtype=np.float32)
-        # mapy = np.zeros((width, height), dtype=np.float32)
-        # for i in tqdm(range(0, width), desc="calculate_maps_inverse"):
-        #     for j in range(0, height):
-        #         x = float(i)
-        #         y = float(j)
-        #         x1 = (x - cx) / fx
-        #         y1 = (y - cy) / fy
-        #         psi = np.sqrt(x1 **2 + y1 ** 2)
-        #         if np.abs(psi) < 1e-7:
-        #             psi = 1e-7
-        #         tan_psi = np.tan(psi)
-        #         x2 = np.arctan(tan_psi * x1 / psi) / 8e-4
-        #         y2 = np.arctan(tan_psi * y1 / psi) / 8e-4
-        #         mapx[i, j] = x2
-        #         mapy[i, j] = y2
-        
-        # mapx += (FOV_image.shape[1] - 1) / 2
-        # mapy += (FOV_image.shape[0] - 1)/ 2
-        # #map = np.stack((mapx, mapy), axis=-1)
-        
-        # back_image = cv2.remap(
-        #     FOV_image,
-        #     mapx.T,
-        #     mapy.T,
-        #     interpolation=cv2.INTER_LINEAR,
-        #     borderMode=cv2.BORDER_REFLECT_101,
-        # )
-        # cv2.imwrite('backward.png', back_image)
 
-        # ref = cv2.imread('/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp_data1/0a5c013435/dslr/image_undistorted_fisheye_original/DSC01752.JPG', -1)
-        # score = psnr(back_image, ref)
-        # print(score)
+
 
 
 if __name__ == "__main__":
