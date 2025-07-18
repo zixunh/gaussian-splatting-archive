@@ -80,12 +80,15 @@ def focal2halffov2(focal, pixels):
 
 def prepare_sibr_cfg(args):
     root_dir = args.path
-    sibr_cfg_dir = Path(root_dir) / "colmap" / "stereo" / "sparse"
+    cam_root_dir = args.cam_path
+    if cam_root_dir is None:
+        cam_root_dir = root_dir
+    sibr_cfg_dir = Path(cam_root_dir) / "colmap" / "stereo" / "sparse"
 
-    cameras_txt = os.path.join(root_dir, "colmap", "cameras.txt")
-    images_txt = os.path.join(root_dir, "colmap", "images.txt")
-    points_txt = os.path.join(root_dir, "colmap", "points3D.txt")
-    cameras_fish_txt = os.path.join(root_dir, "colmap", "cameras_fish.txt")
+    cameras_txt = os.path.join(cam_root_dir, "colmap", "cameras.txt")
+    images_txt = os.path.join(cam_root_dir, "colmap", "images.txt")
+    points_txt = os.path.join(cam_root_dir, "colmap", "points3D.txt")
+    cameras_fish_txt = os.path.join(cam_root_dir, "colmap", "cameras_fish.txt")
 
     if not os.path.exists(cameras_txt):
         raise FileNotFoundError(f"Source file not found: {cameras_txt}")
@@ -112,7 +115,10 @@ def prepare_sibr_cfg(args):
 
 def colmap_main(args):
     root_dir = args.path
-    camera_dir = Path(root_dir) / "colmap" / "cameras_fish.txt"
+    cam_root_dir = args.cam_path
+    if cam_root_dir is None:
+        cam_root_dir = root_dir
+    camera_dir = Path(cam_root_dir) / "colmap" / "cameras_fish.txt"
     input_image_dir = Path(root_dir) / args.src
     out_image_dir = Path(root_dir) / args.dst
     
@@ -144,9 +150,10 @@ def colmap_main(args):
     u, v = u.astype(np.float32), v.astype(np.float32)
 
     #remap ego mask
-    ego_mask = generate_elliptical_mask_bool(height, width).astype(np.float32)
-    ego_mask = cv2.remap(ego_mask, u, v, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
-    valid_mask = valid_mask & (ego_mask > 0.5)
+    if args.add_ego_mask:
+        ego_mask = generate_elliptical_mask_bool(height, width).astype(np.float32)
+        ego_mask = cv2.remap(ego_mask, u, v, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
+        valid_mask = valid_mask & (ego_mask > 0.5)
 
     print("mask covered percentage: ", valid_mask.sum() / (np.ones_like(valid_mask)).sum())
 
@@ -182,9 +189,11 @@ def colmap_main(args):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")
+    parser.add_argument('--cam_path', type=str, default=None)
     parser.add_argument('--src', type=str, default="resized_images")
     parser.add_argument('--dst', type=str, default="undistorted_fovmaps")
     parser.add_argument('--mask_dst', type=str, default=None)
+    parser.add_argument('--add_ego_mask', action='store_true', help="Whether to add an ego mask")
     parser.add_argument('--step', type=float, default=None)
     parser.add_argument('--fov_mod', type=float, default=None)
     args = parser.parse_args()

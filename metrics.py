@@ -36,7 +36,7 @@ def readImages(renders_dir, gt_dir, renders_list, start, end):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
+def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, block_mask=False):
 
     full_dict = {}
     per_view_dict = {}
@@ -76,13 +76,15 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None):
                 gt_dir = Path(custom_gt)
                 print("Custom GT loaded from", gt_dir)
             renders_list = sorted(glob.glob(str(renders_dir / "*.png")))
-
-            mask_path = [f for f in renders_list if "mask" in f][0]
+            
             mask = None
-            if len(mask_path) > 0:
-                mask = Image.open(mask_path)
-                mask = tf.to_tensor(mask).unsqueeze(0)[:, :3, :, :].cuda()
-                # print(mask.shape)
+
+            if not block_mask:
+                mask_path = [f for f in renders_list if "mask" in f][0]
+                if len(mask_path) > 0:
+                    mask = Image.open(mask_path)
+                    mask = tf.to_tensor(mask).unsqueeze(0)[:, :3, :, :].cuda()
+                    # print(mask.shape)
 
             renders_list = [f for f in renders_list if "mask" not in f]
             num_rendered = len(renders_list)
@@ -133,5 +135,6 @@ if __name__ == "__main__":
     parser.add_argument('--use_remap', action='store_true')
     parser.add_argument('--iters', type=int, default = None)
     parser.add_argument('--custom_gt', type=str, default=None)
+    parser.add_argument('--block_mask', action='store_true')
     args = parser.parse_args()
-    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt)
+    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt, args.block_mask)
