@@ -41,9 +41,16 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     mask_covered = mask_tensor.sum() / (torch.ones_like(mask_tensor) * 255.0).sum()
     print("mask covered percentage: ", mask_covered)
 
+    range_lens = []
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]
+        rendering_pkg = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)
+        rendering = rendering_pkg["render"]
+
+        range_len = rendering_pkg["range_len"]  # ranges for each tile
+        print("Associated Gaus num of each tile", range_len, "std", range_len.float().std().item(), "mean", range_len.float().mean().item())
+        range_lens.append(range_len)
+
         torch.cuda.synchronize()
         render_end = time.time()
         render_times.append((render_end - render_start)*1000)
@@ -69,6 +76,16 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     print(f"  FPS: {FPS}")   
     max_allocated_memory_after = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory After Rendering: {max_allocated_memory_after} bytes")
+
+    # Print memory usage statistics
+    print(f"Memory Usage: {max_allocated_memory_after - max_allocated_memory_before} bytes")
+
+    range_lens = torch.cat(range_lens, dim=0)
+    print(f"Associated Gaus num of each tile\n: mean {range_lens.float().mean().item()} Gaussians, std {range_lens.float().std().item()} Gaussians, min {range_lens.float().min().item()} Gaussians, max {range_lens.float().max().item()} Gaussians")
+
+    range_lens_path = os.path.join(model_path, name, "ours_{}".format(iteration), "range_lens.pt")
+    torch.save(range_lens, range_lens_path)
+    print(f"Range lengths saved to {range_lens_path}")
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path):
     with torch.no_grad():
