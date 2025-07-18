@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=4ef75031e3 #2a1a3afad9 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd 0a5c013435
+SCENE_ID=2a1a3afad9 #2a1a3afad9 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd 0a5c013435
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
@@ -9,10 +9,10 @@ DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_fov/scannetpp_fov0.85/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_fullfov_updated/scannetpp/$SCENE_ID
-OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
+# OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
 # OUTPUT_DIR=../../scannetpp_ever_gt/dslr/$SCENE_ID
 # OUTPUT_DIR=/home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID
-# OUTPUT_DIR=/home/Fisheye-GS-scalingup/output_scalingup/scannetpp/dslr/$SCENE_ID
+OUTPUT_DIR=/home/Fisheye-GS-scalingup/output_scalingup/scannetpp/dslr/$SCENE_ID
 # OUTPUT_DIR=/home/3dgrut/runs/"$SCENE_ID"_3dgut/dslr-1604_065944
 # OUTPUT_DIR=../../scannetpp_gvr_achive/scannetpp/$SCENE_ID
 
@@ -28,7 +28,7 @@ FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"/
 TRAIN_MASK_FN=fov_"$FOVMOD_TRAIN"_step_"$STEP_TRAIN"_mask.png
 TEST_MASK_FN=fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"_mask.png
 
-ITERS_NUM=30000
+ITERS_NUM=20000
 
 # # train
 # if $SKIP_TRAIN; then
@@ -51,30 +51,30 @@ ITERS_NUM=30000
 #       # while these parts don't affect the final psnr since they are out of the dataset FoV.
 # fi
 
-# # eval
-# python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
-# render
-python render.py \
-    -m $OUTPUT_DIR \
-    -s $DATASET_DIR \
-    --iteration $ITERS_NUM \
-    --camera_model FISHEYE \
-    --skip_train \
-    --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
-    --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
-    --train_test_exp \
+# # # eval
+# # python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+# # render
+# python render.py \
+#     -m $OUTPUT_DIR \
+#     -s $DATASET_DIR \
+#     --iteration $ITERS_NUM \
+#     --camera_model FISHEYE \
+#     --skip_train \
+#     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
+#     --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
+#     --train_test_exp \
 
-# wrap back to origianal space
-echo "Ground truth (kb) remapping from FoVMap"
-python extract_kb.py --path $DATASET_DIR \
-                    --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
-                    --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
-                    --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# # wrap back to origianal space
+# echo "Ground truth (kb) remapping from FoVMap"
+# python extract_kb.py --path $DATASET_DIR \
+#                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
+#                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
+#                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-python extract_kb.py --path $DATASET_DIR \
-                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
-                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
-                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# python extract_kb.py --path $DATASET_DIR \
+#                      --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
+#                      --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
+#                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
 # evaluation
 python metrics.py \
@@ -82,8 +82,9 @@ python metrics.py \
     --use_remap \
     --iters $ITERS_NUM \
     --custom_mask ./output_fov_updated/scannetpp/$SCENE_ID/test/ours_30000/renders_remap/mask.png \
+    --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_30000/gt_remap \
     --reverse_mask \
     # --custom_mask ./output_fov/scannetpp_fov0.85/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap/mask.png \
-#     --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_30000/gt_remap \
+# 
 
     # --custom_mask ./output_fov_updated/scannetpp/$SCENE_ID/test/ours_$ITERS_NUM/renders_remap/mask.png \

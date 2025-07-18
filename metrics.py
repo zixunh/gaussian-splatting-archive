@@ -52,7 +52,7 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, custom_ma
         full_dict_polytopeonly[scene_dir] = {}
         per_view_dict_polytopeonly[scene_dir] = {}
 
-        test_dir = Path(scene_dir) #/ "test"
+        test_dir = Path(scene_dir) / "test"
 
         for method in os.listdir(test_dir):
             if iters is not None:

@@ -1,5 +1,5 @@
 set -e
-SKIP_TRAIN=false
+SKIP_TRAIN=true
 
 # Put the sequences under datasets/zipnerf this folder. For scannetpp, please put the sequences under datasets/scannetpp
 SCENE_ID=berlin
