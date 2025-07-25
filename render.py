@@ -58,6 +58,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
         rendering[mask_tensor == 0] = 0.0 # aria
+        gt[mask_tensor == 0] = 0.0 # aria
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         image_save_end = time.time()

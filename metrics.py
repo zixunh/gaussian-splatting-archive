@@ -36,7 +36,7 @@ def readImages(renders_dir, gt_dir, renders_list, start, end):
         image_names.append(fname)
     return renders, gts, image_names
 
-def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, block_mask=False):
+def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, block_mask=False, custom_mask=None):
 
     full_dict = {}
     per_view_dict = {}
@@ -80,11 +80,22 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, block_mas
             mask = None
 
             if not block_mask:
-                mask_path = [f for f in renders_list if "mask" in f][0]
+                if custom_mask is not None:
+                    mask_path = custom_mask
+                else:
+                    mask_path = [f for f in renders_list if "mask" in f][0]
                 if len(mask_path) > 0:
                     mask = Image.open(mask_path)
                     mask = tf.to_tensor(mask).unsqueeze(0)[:, :3, :, :].cuda()
-                    # print(mask.shape)
+                    # # print(mask.shape)
+                    # # mask the central area
+                    # start = (1920 - 1536) // 2  # 192
+                    # end = start + 1536          # 1728
+                    # mask[:, :, start:end, start:end] = 0
+                    # # mask[:, :, 0:start, 0:start] = 0
+                    # # mask[:, :, 0:start, end:] = 0
+                    # # mask[:, :, end:, 0:start] = 0
+                    # # mask[:, :, end:, end:] = 0
 
             renders_list = [f for f in renders_list if "mask" not in f]
             num_rendered = len(renders_list)
@@ -100,12 +111,16 @@ def evaluate(model_paths, use_remap=False, iters=None, custom_gt=None, block_mas
                 image_namess.extend(image_names)
 
                 for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
+                    renders[idx][mask.expand(-1, 3, -1, -1) == 0] = 0.0
+                    gts[idx][mask.expand(-1, 3, -1, -1) == 0] = 0.0
                     ssims.append(ssim(renders[idx], gts[idx], mask=mask))
                     psnrs.append(psnr(renders[idx], gts[idx], mask=mask))
                     lpipss.append(lpips(renders[idx], gts[idx], net_type='vgg'))
                     # edge_l1s.append(artifact_sensitive_l1(renders[idx], gts[idx], mask=mask))
 
             print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean(), ".5"))
+            psnr_std = torch.tensor(psnrs[1:-2]).std().item()
+            print(f"  PSNR : {torch.tensor(psnrs[1:-2]).mean().item():>12.7f} ± {psnr_std:.7f}")
             print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean(), ".5"))
             print("  LPIPS: {:>12.7f}".format(torch.tensor(lpipss).mean(), ".5"))
             # print("  Edge L1: {:>12.7f}".format(torch.tensor(edge_l1s).mean(), ".5"))
@@ -136,5 +151,6 @@ if __name__ == "__main__":
     parser.add_argument('--iters', type=int, default = None)
     parser.add_argument('--custom_gt', type=str, default=None)
     parser.add_argument('--block_mask', action='store_true')
+    parser.add_argument('--custom_mask', type=str, default=None)
     args = parser.parse_args()
-    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt, args.block_mask)
+    evaluate(args.model_paths, args.use_remap, args.iters, args.custom_gt, args.block_mask, args.custom_mask)
