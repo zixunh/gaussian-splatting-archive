@@ -48,8 +48,8 @@ ITERS_NUM=30000
 #       # while these parts don't affect the final psnr since they are out of the dataset FoV.
 # fi
 
-# eval
-python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+# # eval
+# python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
 
 # render
 python render.py \
@@ -60,36 +60,36 @@ python render.py \
     --skip_train \
     --mask_path $DATASET_DIR/$FOVMAP_DIR_EVAL$TEST_MASK_FN \
     --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
-    --train_test_exp \
-    --add_ego_mask
+    --train_test_exp
+    # --add_ego_mask
 
-# # wrap back to origianal space
-# echo "Ground truth (kb) remapping from FoVMap"
-# python gridmap/scannetpp/create_fisheye_grid_scannetpp.py
-# python extract_eq.py --path $DATASET_DIR \
-#                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
-#                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
-#                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# # # wrap back to origianal space
+# # echo "Ground truth (kb) remapping from FoVMap"
+# # python gridmap/scannetpp/create_fisheye_grid_scannetpp.py
+# # python extract_eq.py --path $DATASET_DIR \
+# #                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
+# #                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
+# #                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-# python extract_eq.py --path $DATASET_DIR \
-#                      --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
-#                      --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
-#                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# # python extract_eq.py --path $DATASET_DIR \
+# #                      --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
+# #                      --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
+# #                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-# evaluation
-python metrics.py \
-    -m $OUTPUT_DIR \
-    --iters $ITERS_NUM \
-    --block_mask \
-    # --custom_gt /home/Fisheye-GS/output/aria/$SCENE_ID/test/ours_$ITERS_NUM/gt_denoised_masked \
+# # evaluation
+# python metrics.py \
+#     -m $OUTPUT_DIR \
+#     --iters $ITERS_NUM \
+#     --block_mask \
+#     # --custom_gt /home/Fisheye-GS/output/aria/$SCENE_ID/test/ours_$ITERS_NUM/gt_denoised_masked \
 
 
-python prepare_fov.py --path /home/Fisheye-GS/output_remapped_gt/aria/$SCENE_ID/test/ours_30000/ --cam_path $DATASET_DIR --src renders --dst renders_remap --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+# python prepare_fov.py --path /home/Fisheye-GS/output_remapped_gt/aria/$SCENE_ID/test/ours_30000/ --cam_path $DATASET_DIR --src renders --dst renders_remap --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
 
-# evaluation
-python metrics.py \
-    -m /home/Fisheye-GS/output_remapped_gt/aria/$SCENE_ID \
-    --use_remap \
-    --iters $ITERS_NUM \
-    --block_mask \
-    --custom_gt $OUTPUT_DIR/test/ours_30000/gt \
+# # evaluation
+# python metrics.py \
+#     -m /home/Fisheye-GS/output_remapped_gt/aria/$SCENE_ID \
+#     --use_remap \
+#     --iters $ITERS_NUM \
+#     --block_mask \
+#     --custom_gt $OUTPUT_DIR/test/ours_30000/gt \

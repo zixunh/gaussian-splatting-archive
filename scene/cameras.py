@@ -8,7 +8,7 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
-
+from tqdm import tqdm
 import torch
 from torch import nn
 import numpy as np
@@ -17,10 +17,13 @@ from utils.general_utils import PILtoTorch
 import cv2
 
 class Camera(nn.Module):
-    def __init__(self, resolution, colmap_id, R, T, FoVx, FoVy, depth_params, image, invdepthmap,
+    def __init__(self, resolution, colmap_id, R, T, FoVx, FoVy, 
+                 focal_x, focal_y, principal_x, principal_y, distortion_coeffs,
+                 depth_params, image, invdepthmap,
                  image_name, uid, step,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
-                 train_test_exp = False, is_test_dataset = False, is_test_view = False
+                 train_test_exp = False, is_test_dataset = False, is_test_view = False,
+                 render_camera_model = "KB", raymap = None
                  ):
         super(Camera, self).__init__()
 
@@ -30,6 +33,7 @@ class Camera(nn.Module):
         self.T = T
         self.FoVx = FoVx
         self.FoVy = FoVy
+
         self.image_name = image_name
 
         try:
@@ -38,6 +42,19 @@ class Camera(nn.Module):
             print(e)
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
+
+        if render_camera_model == "BEAP":
+            self.raymap = None
+        elif render_camera_model == "KB":
+            self.focal_x = focal_x.item()
+            self.focal_y = focal_y.item()
+            self.principal_x = principal_x.item()
+            self.principal_y = principal_y.item()
+            self.distortion_coeffs = torch.from_numpy(distortion_coeffs.astype(np.float32))
+            assert raymap is not None
+            self.raymap = torch.from_numpy(raymap.astype(np.float32)) #self.scannetpp_raymap(raymap, resolution, focal_x, focal_y, FoVx, FoVy, step)
+
+        self.render_camera_model = render_camera_model
 
         resized_image_rgb = PILtoTorch(image, resolution)
         gt_image = resized_image_rgb[:3, ...]
@@ -102,29 +119,33 @@ class Camera(nn.Module):
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
         self.sampled_image = self.original_image
 
-    @staticmethod
-    def project_to_fovmap(sampled_rays, image, fx, fy, cx, cy, depth=None):
-        u = (sampled_rays[:, 0] / sampled_rays[:, 2]) * fx + cx
-        v = (sampled_rays[:, 1] / sampled_rays[:, 2]) * fy + cy
-        u, v = u.long(), v.long()
-        sampled_image = image[:, v, u]
-        sampled_depth = None
-        if depth is not None:
-            sampled_depth = depth[v, u]
+    # @staticmethod
+    # def scannetpp_raymap(grid_fisheye, resolution, fx, fy, FoVx, FoVy, step):
         
-        return sampled_image, sampled_depth
-    
-    @staticmethod
-    def project_to_fovmap_scannetpp(sampled_rays, image, fx, fy, cx, cy, depth=None):
-        u = (sampled_rays[:, 0] / sampled_rays[:, 2]) * fx + cx
-        v = (sampled_rays[:, 1] / sampled_rays[:, 2]) * fy + cy
-        u, v = u.long(), v.long()
-        sampled_image = image[:, v, u]
-        sampled_depth = None
-        if depth is not None:
-            sampled_depth = depth[v, u]
+    #     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], resolution, interpolation=cv2.INTER_NEAREST)
+    #     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], resolution)
+    #     grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
         
-        return sampled_image, sampled_depth
+    #     # Reverse warping
+    #     reverse_mapx = np.zeros(resolution, dtype=np.float32)
+    #     reverse_mapy = np.zeros(resolution, dtype=np.float32)
+    #     # More exact reverse warping using grid_fisheye
+    #     for i in tqdm(range(0, resolution[0]), desc="calculate_reverse_maps"):
+    #         for j in range(0, resolution[1]):
+    #             X_c = grid_fisheye[j, i, 0]
+    #             Y_c = grid_fisheye[j, i, 1]
+    #             Z_c = grid_fisheye[j, i, 2]
+    #             tan_theta = X_c / (Z_c + 1e-9)
+    #             tan_phi = Y_c / (Z_c + 1e-9)
+                
+    #             theta = np.arctan(tan_theta)
+    #             phi = np.arctan(tan_phi)
+                
+    #             x2 = (theta + FoVx) / step
+    #             y2 = (phi + FoVy) / step
+    #             reverse_mapx[i, j] = x2
+    #             reverse_mapy[i, j] = y2
+    #     return None
 
     @staticmethod
     def fov_sample2ray(fovx, fovy, interval):
@@ -198,3 +219,5 @@ class MiniCam:
         self.valid_mask = (valid_mask).astype(np.uint8)
         return self.valid_mask
 
+
+        

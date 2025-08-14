@@ -43,6 +43,11 @@ class CameraInfo_fisheye(NamedTuple):
     T: np.array
     FovY: np.array
     FovX: np.array
+    focal_x: np.array
+    focal_y: np.array
+    principal_x: np.array
+    principal_y: np.array
+    distortion_coeffs: np.array
     image: np.array
     image_path: str
     image_name: str
@@ -282,15 +287,18 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, fov
             FovX = focal2fov(focal_length_x, width)
             print("\n PINHOLE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
         elif intr.model=="OPENCV_FISHEYE": #SCANNET++
+            assert len(intr.params) == 8, "Expected 8 parameters for OPENCV_FISHEYE"
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
+            principal_x = intr.params[2]
+            principal_y = intr.params[3]
             # for ray-splatting start
             # Change the fov to match the undistorted image
             # FovY = min(np.pi, focal2fov2(focal_length_y, height) * fov_mod) #/ 0.8
             FovY = min(np.pi, focal2fov2(focal_length_y, height) * fov_mod) #/ 0.8
             # FovX = min(np.pi, focal2fov2(focal_length_x, width) * fov_mod) #/ 0.8
             FovX = min(np.pi, focal2fov2(focal_length_x, width) * fov_mod) #/ 0.8
-            print("\n OPENCV_FISHEYE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
+            # print("\n OPENCV_FISHEYE, loading FOVx, FOVy: ", FovX * 180 / np.pi, FovY * 180 / np.pi)
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE, SIMPLE_PINHOLE, OPENCV_FISHEYE cameras) supported!"
 
@@ -301,8 +309,13 @@ def readColmapCameras_fisheye(cam_extrinsics, cam_intrinsics, images_folder, fov
         if not os.path.exists(image_path):
             continue
         image = Image.open(image_path)
-        cam_info = CameraInfo_fisheye(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                              image_path=image_path, image_name=image_name, width=width, height=height)
+        
+        cam_info = CameraInfo_fisheye(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, 
+                                      focal_x=focal_length_x, focal_y=focal_length_y,
+                                      principal_x=principal_x, principal_y=principal_y,
+                                      distortion_coeffs=intr.params[4:],
+                                      image=image,
+                                      image_path=image_path, image_name=image_name, width=width, height=height)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos

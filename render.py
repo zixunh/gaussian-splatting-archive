@@ -50,7 +50,7 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
-        rendering[mask_tensor == 0] = 0.0 # aria
+        # rendering[mask_tensor == 0] = 0.0 # aria
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         image_save_end = time.time()
@@ -70,14 +70,18 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     max_allocated_memory_after = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory After Rendering: {max_allocated_memory_after} bytes")
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, raymap_path):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         dataset.fov_mod = fov_mod
         dataset.sample_step = sample_step
+
+        # Use prepared fisheye grid map by DAC https://github.com/yuliangguo/depth_any_camera
+        raymap_fisheye = np.load(raymap_path)
+        dataset.raymap = raymap_fisheye
+
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, skip_train_cameras=skip_train, skip_test_cameras=skip_test)
         valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        print(valid_mask, mask_path)
         valid_mask = np.repeat(valid_mask[None, ...], 3, axis=0)
         valid_mask = torch.tensor(valid_mask)
 
@@ -102,6 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--mask_path", type=str, default = None)
+    parser.add_argument("--raymap_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = None)
     parser.add_argument("--fov_mod", type=float, default = None)
     args = get_combined_args(parser)
@@ -110,4 +115,5 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.fov_mod, args.sample_step, args.mask_path)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, \
+                args.fov_mod, args.sample_step, args.mask_path, args.raymap_path)

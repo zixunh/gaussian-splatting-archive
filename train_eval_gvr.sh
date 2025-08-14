@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
+SCENE_ID=1d003b07bd #4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
@@ -34,8 +34,8 @@ else
   python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_TRAIN --step $STEP_TRAIN --fov_mod $FOVMOD_TRAIN --mask_dst $TRAIN_MASK_FN
   python train.py -s $DATASET_DIR -m $OUTPUT_DIR \
       --iterations $ITERS_NUM \
-      --checkpoint_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
-      --save_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
+      --checkpoint_iterations 300 3000 7000 15000 30000 \
+      --save_iterations 300 3000 7000 15000 30000 \
       --test_iterations 200 300 500 700 1000 2000 3000 4000 7000 8000 9000 10000 12000 15000 17000 20000 22000 25000 27000 30000 \
       --resolution 1 \
       --eval \
@@ -48,7 +48,9 @@ else
 fi
 
 # eval
-python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+# python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+python kb_raymap.py --path $DATASET_DIR \
+                    --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 # render
 python render.py \
     -m $OUTPUT_DIR \
@@ -57,6 +59,7 @@ python render.py \
     --camera_model FISHEYE \
     --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
+    --raymap_path "$DATASET_DIR"raymap_fisheye.npy \
     --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
     --train_test_exp \
 
@@ -74,6 +77,9 @@ python extract_kb.py --path $DATASET_DIR \
 
 # evaluation
 python metrics.py \
-    -m $OUTPUT_DIR --use_remap \
+    -m $OUTPUT_DIR \
     --iters $ITERS_NUM \
+    --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
+    --block_mask
+    #  --use_remap \
     # --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \
