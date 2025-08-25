@@ -1,7 +1,7 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=1d003b07bd #4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
+SCENE_ID=1d003b07bd  #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
@@ -13,7 +13,7 @@ OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
 # OUTPUT_DIR=../../scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
-STEP_EVAL=0.0015
+STEP_EVAL=0.002
 
 FOVMOD_TRAIN=1.3 #0.85 #0.85 #1.0 #1.3 #1.0 #1.3
 FOVMOD_EVAL=2.0 #0.85 #0.85 #1.0 #2.0 #1.0 #2.0
@@ -48,7 +48,7 @@ else
 fi
 
 # eval
-# python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
 python kb_raymap.py --path $DATASET_DIR \
                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 # render
@@ -77,9 +77,8 @@ python extract_kb.py --path $DATASET_DIR \
 
 # evaluation
 python metrics.py \
-    -m $OUTPUT_DIR \
+    -m $OUTPUT_DIR --block_mask \
     --iters $ITERS_NUM \
-    --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
-    --block_mask
+    --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \
+            # --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
     #  --use_remap \
-    # --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \

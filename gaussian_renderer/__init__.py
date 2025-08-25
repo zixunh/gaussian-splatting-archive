@@ -33,6 +33,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
     # print(viewpoint_camera.focal_x.device)
+    print("clamp value:", tanfovx, tanfovy)
 
     scaling_modifier = scaling_modifier
     raster_settings = GaussianRasterizationSettings(
@@ -103,7 +104,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         colors_precomp = override_color
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii, depth_image = rasterizer(
+    rendered_image, radii, depth_image, ranges = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -126,7 +127,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         "viewspace_points": screenspace_points,
         "visibility_filter" : (radii > 0).nonzero(),
         "radii": radii,
-        "depth" : depth_image
+        "depth" : depth_image,
+        "range_len": ranges,  # ranges for each tile
         }
     
     return out

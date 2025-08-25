@@ -41,11 +41,17 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     mask_covered = mask_tensor.sum() / (torch.ones_like(mask_tensor) * 255.0).sum()
     print("mask covered percentage: ", mask_covered)
 
+    range_lens = []
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]
-        torch.cuda.synchronize()
+        rendering_pkg = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)
         render_end = time.time()
+
+        rendering = rendering_pkg["render"]
+        range_len = rendering_pkg["range_len"]  # ranges for each tile
+        print("Associated Gaus num of each tile", range_len, "std", range_len.float().std().item(), "mean", range_len.float().mean().item(), "shape", range_len.shape)
+        range_lens.append(range_len)
+
         render_times.append((render_end - render_start)*1000)
 
         image_save_start = time.time()
@@ -53,6 +59,11 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         # rendering[mask_tensor == 0] = 0.0 # aria
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+
+        masked = range_len.clone()
+        # masked[masked < 10000] = 0   # 小于 2000 的值置为 0
+        torchvision.utils.save_image((masked.reshape(73, 110)[:, :, None].float() / masked.max()).permute(2,0,1), os.path.join('./tmp', '{0:05d}'.format(idx) + "_asso.png"))
+
         image_save_end = time.time()
         image_save_times.append((image_save_end - image_save_start)*1000)
         try:
@@ -63,12 +74,19 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     
     means = torch.tensor(render_times).mean()
     maxs = torch.tensor(render_times).max()
-    FPS = 1.0 / (means / 1000.0) / mask_covered
+    FPS = 1.0 / (means / 1000.0) #/ mask_covered
     print(f"  AVG_Render_Time : {means} ms")
     print(f"  MAX_Render_Time : {maxs} ms")
     print(f"  FPS: {FPS}")   
     max_allocated_memory_after = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory After Rendering: {max_allocated_memory_after} bytes")
+
+    # Print memory usage statistics
+    print(f"Memory Usage: {max_allocated_memory_after - max_allocated_memory_before} bytes")
+
+    range_lens = torch.cat(range_lens, dim=0)
+    print(f"Associated Gaus num of each tile\n: mean {range_lens.float().mean().item()} Gaussians, std {range_lens.float().std().item()} Gaussians, min {range_lens.float().min().item()} Gaussians, max {range_lens.float().max().item()} Gaussians")
+
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, raymap_path):
     with torch.no_grad():
