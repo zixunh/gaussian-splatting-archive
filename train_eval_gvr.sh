@@ -1,16 +1,16 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=1d003b07bd  #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
+SCENE_ID=4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_ewa/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp_fov0.85/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp/$SCENE_ID
-# OUTPUT_DIR=./output_fullfov_updated/scannetpp/$SCENE_ID
-OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
-# OUTPUT_DIR=../../scannetpp_fs_gt/dslr/$SCENE_ID
+OUTPUT_DIR=../../ablation/fsgs_scannetpp/output_fullfov_updated/scannetpp/$SCENE_ID
+# OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
+# OUTPUT_DIR=../../Fisheye-GS/output_scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
 STEP_EVAL=0.002

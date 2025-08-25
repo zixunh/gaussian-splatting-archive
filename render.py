@@ -24,6 +24,8 @@ from gaussian_renderer import GaussianModel
 from utils.image_utils import psnr
 import numpy as np
 import cv2
+import time
+
 
 def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
@@ -35,6 +37,12 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+
+    render_times_overall = []
+    render_times_prep = []
+    render_times_dup = []
+    render_times_sort = []
+    render_times_render = []
 
     render_times = []
     image_save_times = []
@@ -48,11 +56,19 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         render_end = time.time()
 
         rendering = rendering_pkg["render"]
+        runtime = rendering_pkg["time"]
         range_len = rendering_pkg["range_len"]  # ranges for each tile
+
         print("Associated Gaus num of each tile", range_len, "std", range_len.float().std().item(), "mean", range_len.float().mean().item(), "shape", range_len.shape)
         range_lens.append(range_len)
 
         render_times.append((render_end - render_start)*1000)
+
+        render_times_overall.append(runtime[0])
+        render_times_prep.append(runtime[1])
+        render_times_dup.append(runtime[2])
+        render_times_sort.append(runtime[3])
+        render_times_render.append(runtime[4])
 
         image_save_start = time.time()
         gt = view.original_image[0:3, :, :]
@@ -86,6 +102,28 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     range_lens = torch.cat(range_lens, dim=0)
     print(f"Associated Gaus num of each tile\n: mean {range_lens.float().mean().item()} Gaussians, std {range_lens.float().std().item()} Gaussians, min {range_lens.float().min().item()} Gaussians, max {range_lens.float().max().item()} Gaussians")
+
+    means = torch.tensor(render_times_overall).mean()
+    maxs = torch.tensor(render_times_overall).max()
+    FPS = 1.0 / (means / 1000.0)
+    print(f"  AVG_OVERALL_Time : {means} ms")
+    print(f" AVG_OVERALL_Time FPS: {FPS}")   
+
+    means = torch.tensor(render_times_prep).mean()
+    maxs = torch.tensor(render_times_prep).max()
+    print(f"  AVG_PREP_Time : {means} ms")
+
+    means = torch.tensor(render_times_dup).mean()
+    maxs = torch.tensor(render_times_dup).max()
+    print(f"  AVG_DUP_Time : {means} ms")
+
+    means = torch.tensor(render_times_sort).mean()
+    maxs = torch.tensor(render_times_sort).max()
+    print(f"  AVG_SORT_Time : {means} ms")
+
+    means = torch.tensor(render_times_render).mean()
+    maxs = torch.tensor(render_times_render).max()
+    print(f"  AVG_RenFunc_Time : {means} ms")
 
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, raymap_path):
