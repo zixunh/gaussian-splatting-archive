@@ -3,8 +3,8 @@ set -e
 # SCENE_IDS="0a5c013435 1d003b07bd 4ef75031e3 2a1a3afad9 1f7cbbdde1"
 # DATA_ROOT="/media/projectaria_tools_aria-scenes_data/scannetpp_formatted/"
 # SCENE_IDS="steakhouse_patio"
-DATA_ROOT="/media/bosch_handhold_device/scannetpp_formatted/"
-SCENE_IDS="bosch_miniPoC"
+DATA_ROOT="/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp/"
+SCENE_IDS="0a5c013435"
 
 STEP=0.002
 FOVMOD_TRAIN=1.0
@@ -15,7 +15,7 @@ for SCENE_ID in $SCENE_IDS; do
     echo "Processing scene: $SCENE_ID"
 
     # DATASET_DIR="$DATA_ROOT$SCENE_ID/dslr/"
-    DATASET_DIR="$DATA_ROOT$SCENE_ID/"
+    DATASET_DIR="$DATA_ROOT$SCENE_ID/dslr/"
     OUTPUT_DIR="./output/$SCENE_ID"
 
     FOVMAP_DIR_TRAIN="undistorted_fovmaps_fov_${FOVMOD_TRAIN}_step_${STEP}/"

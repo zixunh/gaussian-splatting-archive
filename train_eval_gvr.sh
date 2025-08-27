@@ -2,14 +2,14 @@ set -e
 SKIP_TRAIN=true
 
 SCENE_ID=1d003b07bd  #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
-DATA_ROOT=/media/scannetpp/demo/
+DATA_ROOT=/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/scannetpp/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_ewa/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp_fov0.85/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_fullfov_updated/scannetpp/$SCENE_ID
-OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
+OUTPUT_DIR=/home/choyingw/Documents/0824_clone/gaussian-splatting-archive/scannetpp_1d003b07bd_ckpt/$SCENE_ID
 # OUTPUT_DIR=../../scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
@@ -48,7 +48,7 @@ else
 fi
 
 # eval
-python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+#python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
 python kb_raymap.py --path $DATASET_DIR \
                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 # render
@@ -64,21 +64,21 @@ python render.py \
     --train_test_exp \
 
 # wrap back to origianal space
-echo "Ground truth (kb) remapping from FoVMap"
-python extract_kb.py --path $DATASET_DIR \
-                    --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
-                    --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
-                    --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# echo "Ground truth (kb) remapping from FoVMap"
+# python extract_kb.py --path $DATASET_DIR \
+#                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
+#                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
+#                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-python extract_kb.py --path $DATASET_DIR \
-                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
-                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
-                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# python extract_kb.py --path $DATASET_DIR \
+#                      --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
+#                      --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
+#                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-# evaluation
+# # evaluation
 python metrics.py \
     -m $OUTPUT_DIR --block_mask \
     --iters $ITERS_NUM \
-    --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \
+    --custom_gt /home/choyingw/Documents/0824_clone/gaussian-splatting-archive/scannetpp_1d003b07bd_ckpt/1d003b07bd/test/ours_30000/gt_ori/ \
             # --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
     #  --use_remap \
