@@ -17,6 +17,182 @@ from utils.general_utils import PILtoTorch
 import cv2
 
 
+# class Camera(nn.Module):
+#     def __init__(
+#         self,
+#         resolution,
+#         colmap_id,
+#         R,
+#         T,
+#         FoVx,
+#         FoVy,
+#         focal_x,
+#         focal_y,
+#         principal_x,
+#         principal_y,
+#         distortion_coeffs,
+#         depth_params,
+#         image,
+#         invdepthmap,
+#         image_name,
+#         uid,
+#         step,
+#         trans=np.array([0.0, 0.0, 0.0]),
+#         scale=1.0,
+#         data_device="cuda",
+#         train_test_exp=False,
+#         is_test_dataset=False,
+#         is_test_view=False,
+#         render_camera_model="KB",
+#         raymap=None,
+#     ):
+#         super(Camera, self).__init__()
+
+#         self.uid = uid
+#         self.colmap_id = colmap_id
+#         self.R = R
+#         self.T = T
+#         self.FoVx = FoVx
+#         self.FoVy = FoVy
+
+#         self.image_name = image_name
+
+#         try:
+#             self.data_device = torch.device(data_device)
+#         except Exception as e:
+#             print(e)
+#             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device")
+#             self.data_device = torch.device("cuda")
+
+#         if render_camera_model == "BEAP":
+#             self.raymap = None
+#         elif render_camera_model == "KB":
+#             self.focal_x = focal_x.item()
+#             self.focal_y = focal_y.item()
+#             self.principal_x = principal_x.item()
+#             self.principal_y = principal_y.item()
+#             self.distortion_coeffs = torch.from_numpy(distortion_coeffs.astype(np.float32))
+#             assert raymap is not None
+#             self.raymap = torch.from_numpy(
+#                 raymap.astype(np.float32)
+#             )  # self.scannetpp_raymap(raymap, resolution, focal_x, focal_y, FoVx, FoVy, step)
+
+#         self.render_camera_model = render_camera_model
+
+#         resized_image_rgb = PILtoTorch(image, resolution)
+#         gt_image = resized_image_rgb[:3, ...]
+#         self.alpha_mask = None
+#         if resized_image_rgb.shape[0] == 4:
+#             self.alpha_mask = resized_image_rgb[3:4, ...].to(self.data_device)
+#         else:
+#             self.alpha_mask = torch.ones_like(resized_image_rgb[0:1, ...].to(self.data_device))
+
+#         if train_test_exp and is_test_view:
+#             if is_test_dataset:
+#                 self.alpha_mask[..., : self.alpha_mask.shape[-1] // 2] = 0
+#             else:
+#                 self.alpha_mask[..., self.alpha_mask.shape[-1] // 2 :] = 0
+
+#         self.original_image = gt_image.clamp(0.0, 1.0).to(self.data_device)
+#         self.image_width = self.original_image.shape[2]
+#         self.image_height = self.original_image.shape[1]
+
+#         self.invdepthmap = None
+#         self.depth_reliable = False
+#         if invdepthmap is not None:
+#             self.depth_mask = torch.ones_like(self.alpha_mask)
+#             self.invdepthmap = cv2.resize(invdepthmap, resolution)
+#             self.invdepthmap[self.invdepthmap < 0] = 0
+#             self.depth_reliable = True
+
+#             if depth_params is not None:
+#                 if (
+#                     depth_params["scale"] < 0.2 * depth_params["med_scale"]
+#                     or depth_params["scale"] > 5 * depth_params["med_scale"]
+#                 ):
+#                     self.depth_reliable = False
+#                     self.depth_mask *= 0
+
+#                 if depth_params["scale"] > 0:
+#                     self.invdepthmap = self.invdepthmap * depth_params["scale"] + depth_params["offset"]
+
+#             if self.invdepthmap.ndim != 2:
+#                 self.invdepthmap = self.invdepthmap[..., 0]
+#             self.invdepthmap = torch.from_numpy(self.invdepthmap[None]).to(self.data_device)
+
+#         self.zfar = 100.0
+#         self.znear = 0.01
+
+#         self.trans = trans
+#         self.scale = scale
+
+#         self.world_view_transform = torch.tensor(getWorld2View2(R, T, trans, scale)).transpose(0, 1).cuda()
+#         self.projection_matrix = (
+#             getProjectionMatrix(znear=self.znear, zfar=self.zfar, fovX=self.FoVx, fovY=self.FoVy).transpose(0, 1).cuda()
+#         )
+#         self.full_proj_transform = (
+#             self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))
+#         ).squeeze(0)
+#         self.camera_center = self.world_view_transform.inverse()[3, :3]
+
+#         # for ray-splatting start
+#         # Change the step adjust resolution
+#         arr_theta, arr_phi = self.fov_sample2ray(FoVx / 2, FoVy / 2, step)
+#         cos_theta = torch.cos(arr_theta)
+#         cos_phi = torch.cos(arr_phi)
+
+#         cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(
+#             self.data_device
+#         )
+#         cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(self.data_device)
+#         self.tan_theta = torch.tan(arr_theta).to(self.data_device)
+#         self.tan_phi = torch.tan(arr_phi).to(self.data_device)
+#         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
+#         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
+#         self.sampled_image = self.original_image
+
+#     # @staticmethod
+#     # def scannetpp_raymap(grid_fisheye, resolution, fx, fy, FoVx, FoVy, step):
+
+#     #     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], resolution, interpolation=cv2.INTER_NEAREST)
+#     #     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], resolution)
+#     #     grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
+
+#     #     # Reverse warping
+#     #     reverse_mapx = np.zeros(resolution, dtype=np.float32)
+#     #     reverse_mapy = np.zeros(resolution, dtype=np.float32)
+#     #     # More exact reverse warping using grid_fisheye
+#     #     for i in tqdm(range(0, resolution[0]), desc="calculate_reverse_maps"):
+#     #         for j in range(0, resolution[1]):
+#     #             X_c = grid_fisheye[j, i, 0]
+#     #             Y_c = grid_fisheye[j, i, 1]
+#     #             Z_c = grid_fisheye[j, i, 2]
+#     #             tan_theta = X_c / (Z_c + 1e-9)
+#     #             tan_phi = Y_c / (Z_c + 1e-9)
+
+#     #             theta = np.arctan(tan_theta)
+#     #             phi = np.arctan(tan_phi)
+
+#     #             x2 = (theta + FoVx) / step
+#     #             y2 = (phi + FoVy) / step
+#     #             reverse_mapx[i, j] = x2
+#     #             reverse_mapy[i, j] = y2
+#     #     return None
+
+#     @staticmethod
+#     def fov_sample2ray(fovx, fovy, interval):
+#         theta_arr = torch.arange(interval / 2, fovx, interval)
+#         theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
+#         phi_arr = torch.arange(interval / 2, fovy, interval)
+#         phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
+
+#         return theta_arr.float(), phi_arr.float()
+
+#     @staticmethod
+#     def omni_map_z(m, z, xi=0.0):  # 1.1
+#         return m / (1 + xi * (z / (torch.abs(z))) * (1 + m**2) ** 0.5)
+
+
 class Camera(nn.Module):
     def __init__(
         self,
@@ -40,10 +216,11 @@ class Camera(nn.Module):
         trans=np.array([0.0, 0.0, 0.0]),
         scale=1.0,
         data_device="cuda",
+        xi=None,
         train_test_exp=False,
         is_test_dataset=False,
         is_test_view=False,
-        render_camera_model="KB",
+        render_camera_model="BEAP",
         raymap=None,
     ):
         super(Camera, self).__init__()
@@ -52,9 +229,9 @@ class Camera(nn.Module):
         self.colmap_id = colmap_id
         self.R = R
         self.T = T
+        # Use Full FOV in original angle
         self.FoVx = FoVx
         self.FoVy = FoVy
-
         self.image_name = image_name
 
         try:
@@ -65,7 +242,13 @@ class Camera(nn.Module):
             self.data_device = torch.device("cuda")
 
         if render_camera_model == "BEAP":
-            self.raymap = None
+            # Need to feed these redundant vars to match API first
+            self.raymap = self.raymap = torch.from_numpy(raymap.astype(np.float32))
+            self.focal_x = focal_x
+            self.focal_y = focal_y
+            self.principal_x = principal_x
+            self.principal_y = principal_y
+            self.distortion_coeffs = torch.from_numpy(distortion_coeffs.astype(np.float32))
         elif render_camera_model == "KB":
             self.focal_x = focal_x.item()
             self.focal_y = focal_y.item()
@@ -96,6 +279,11 @@ class Camera(nn.Module):
         self.original_image = gt_image.clamp(0.0, 1.0).to(self.data_device)
         self.image_width = self.original_image.shape[2]
         self.image_height = self.original_image.shape[1]
+
+        # if gt_alpha_mask is not None:
+        #     self.original_image *= gt_alpha_mask.to(self.data_device)
+        # else:
+        #     self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
 
         self.invdepthmap = None
         self.depth_reliable = False
@@ -137,155 +325,53 @@ class Camera(nn.Module):
 
         # for ray-splatting start
         # Change the step adjust resolution
-        arr_theta, arr_phi = self.fov_sample2ray(FoVx / 2, FoVy / 2, step)
-        cos_theta = torch.cos(arr_theta)
-        cos_phi = torch.cos(arr_phi)
-
-        cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(
-            self.data_device
-        )
-        cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(self.data_device)
-        self.tan_theta = torch.tan(arr_theta).to(self.data_device)
-        self.tan_phi = torch.tan(arr_phi).to(self.data_device)
-        self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
-        self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
-        self.sampled_image = self.original_image
-
-    # @staticmethod
-    # def scannetpp_raymap(grid_fisheye, resolution, fx, fy, FoVx, FoVy, step):
-
-    #     grid_isnan = cv2.resize(grid_fisheye[:, :, 3], resolution, interpolation=cv2.INTER_NEAREST)
-    #     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], resolution)
-    #     grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
-
-    #     # Reverse warping
-    #     reverse_mapx = np.zeros(resolution, dtype=np.float32)
-    #     reverse_mapy = np.zeros(resolution, dtype=np.float32)
-    #     # More exact reverse warping using grid_fisheye
-    #     for i in tqdm(range(0, resolution[0]), desc="calculate_reverse_maps"):
-    #         for j in range(0, resolution[1]):
-    #             X_c = grid_fisheye[j, i, 0]
-    #             Y_c = grid_fisheye[j, i, 1]
-    #             Z_c = grid_fisheye[j, i, 2]
-    #             tan_theta = X_c / (Z_c + 1e-9)
-    #             tan_phi = Y_c / (Z_c + 1e-9)
-
-    #             theta = np.arctan(tan_theta)
-    #             phi = np.arctan(tan_phi)
-
-    #             x2 = (theta + FoVx) / step
-    #             y2 = (phi + FoVy) / step
-    #             reverse_mapx[i, j] = x2
-    #             reverse_mapy[i, j] = y2
-    #     return None
-
-    @staticmethod
-    def fov_sample2ray(fovx, fovy, interval):
-        theta_arr = torch.arange(interval / 2, fovx, interval)
-        theta_arr, _ = torch.sort(torch.cat((-theta_arr, theta_arr)))
-        phi_arr = torch.arange(interval / 2, fovy, interval)
-        phi_arr, _ = torch.sort(torch.cat((-phi_arr, phi_arr)))
-
-        return theta_arr.float(), phi_arr.float()
-
-    @staticmethod
-    def omni_map_z(m, z, xi=0.0):  # 1.1
-        return m / (1 + xi * (z / (torch.abs(z))) * (1 + m**2) ** 0.5)
-
-
-class Camera_mvg(nn.Module):
-    def __init__(
-        self,
-        colmap_id,
-        R,
-        T,
-        FoVx,
-        FoVy,
-        image,
-        gt_alpha_mask,
-        image_name,
-        uid,
-        step,
-        trans=np.array([0.0, 0.0, 0.0]),
-        scale=1.0,
-        data_device="cuda",
-        xi=1.0,
-    ):
-        super(Camera_mvg, self).__init__()
-
-        self.uid = uid
-        self.colmap_id = colmap_id
-        self.R = R
-        self.T = T
-        # Use Full FOV in original angle
-        self.FoVx = FoVx
-        self.FoVy = FoVy
-        self.image_name = image_name
-        self.render_camera_model = "BEAP"
-
-        try:
-            self.data_device = torch.device(data_device)
-        except Exception as e:
-            print(e)
-            print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device")
-            self.data_device = torch.device("cuda")
-
-        self.original_image = image.clamp(0.0, 1.0).to(self.data_device)
-        self.image_width = self.original_image.shape[2]
-        self.image_height = self.original_image.shape[1]
-
-        if gt_alpha_mask is not None:
-            self.original_image *= gt_alpha_mask.to(self.data_device)
-        else:
-            self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
-
-        self.invdepthmap = None
-        self.depth_reliable = False
-
-        self.zfar = 100.0
-        self.znear = 0.01
-
-        self.trans = trans
-        self.scale = scale
-
-        self.world_view_transform = torch.tensor(getWorld2View2(R, T, trans, scale)).transpose(0, 1).cuda()
-        self.projection_matrix = (
-            getProjectionMatrix(znear=self.znear, zfar=self.zfar, fovX=self.FoVx, fovY=self.FoVy).transpose(0, 1).cuda()
-        )
-        self.full_proj_transform = (
-            self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))
-        ).squeeze(0)
-        self.camera_center = self.world_view_transform.inverse()[3, :3]
-
-        # for ray-splatting start
-        # Change the step adjust resolution
         # Convert to omni angle
-        FoVx_omni = FoVx / 2
-        FoVy_omni = FoVy / 2
+        if xi >= 0:
+            FoVx_omni = FoVx / 2
+            FoVy_omni = FoVy / 2
 
-        omni_theta_arr = np.arange(step / 2, FoVx_omni / 2, step)
-        omni_theta_arr = np.sort(np.concatenate((-omni_theta_arr, omni_theta_arr)))
-        omni_phi_arr = np.arange(step / 2, FoVy_omni / 2, step)
-        omni_phi_arr = np.sort(np.concatenate((-omni_phi_arr, omni_phi_arr)))
-        omni_theta_map, omni_phi_map = np.meshgrid(omni_theta_arr, omni_phi_arr, indexing="xy")
+            omni_theta_arr = np.arange(step / 2, FoVx_omni / 2, step)
+            omni_theta_arr = np.sort(np.concatenate((-omni_theta_arr, omni_theta_arr)))
+            omni_phi_arr = np.arange(step / 2, FoVy_omni / 2, step)
+            omni_phi_arr = np.sort(np.concatenate((-omni_phi_arr, omni_phi_arr)))
+            omni_theta_map, omni_phi_map = np.meshgrid(omni_theta_arr, omni_phi_arr, indexing="xy")
 
-        if xi == 1.0:
-            # incident_angle_map = 2.0 * omni_incident_angle_map # from 0 to pi
-            theta_map = 2.0 * omni_theta_map
-            phi_map = 2.0 * omni_phi_map
+            if xi == 1.0:
+                # incident_angle_map = 2.0 * omni_incident_angle_map # from 0 to pi
+                theta_map = 2.0 * omni_theta_map
+                phi_map = 2.0 * omni_phi_map
+            else:
+                assert (
+                    xi < 1.0
+                ), "the ray starting from the mirror point will have two intersections with the unit sphere"
+                theta_map = omni_theta_map + np.arcsin(xi * np.sin(omni_theta_map))
+                phi_map = omni_phi_map + np.arcsin(xi * np.sin(omni_phi_map))
+
+            tan_theta_map = np.tan(theta_map)
+            tan_phi_map = np.tan(phi_map)
+
+            self.tan_theta = torch.Tensor(tan_theta_map)
+            self.tan_phi = torch.Tensor(tan_phi_map)
+            self.omni_tan_theta = torch.Tensor(np.tan(omni_theta_arr)).float()
+            self.omni_tan_phi = torch.Tensor(np.tan(omni_phi_arr)).float()
         else:
-            assert xi < 1.0, "the ray starting from the mirror point will have two intersections with the unit sphere"
-            assert xi >= 0.0, "xi should be positive"
-            theta_map = omni_theta_map + np.arcsin(xi * np.sin(omni_theta_map))
-            phi_map = omni_phi_map + np.arcsin(xi * np.sin(omni_phi_map))
+            # for ray-splatting start
+            # Change the step adjust resolution
+            arr_theta, arr_phi = self.fov_sample2ray(FoVx / 2, FoVy / 2, step)
+            cos_theta = torch.cos(arr_theta)
+            cos_phi = torch.cos(arr_phi)
 
-        tan_theta_map = np.tan(theta_map)
-        tan_phi_map = np.tan(phi_map)
+            cos_theta = torch.where(torch.abs(cos_theta) < 1e-7, torch.full_like(cos_theta, 1e-7), cos_theta).to(
+                self.data_device
+            )
+            cos_phi = torch.where(torch.abs(cos_phi) < 1e-7, torch.full_like(cos_phi, 1e-7), cos_phi).to(
+                self.data_device
+            )
+            self.tan_theta = torch.tan(arr_theta).to(self.data_device)
+            self.tan_phi = torch.tan(arr_phi).to(self.data_device)
+            self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
+            self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
 
-        self.tan_theta = torch.Tensor(tan_theta_map)
-        self.tan_phi = torch.Tensor(tan_phi_map)
-        self.omni_tan_theta = torch.Tensor(np.tan(omni_theta_arr)).float()
-        self.omni_tan_phi = torch.Tensor(np.tan(omni_phi_arr)).float()
         self.sampled_image = self.original_image
 
     @staticmethod

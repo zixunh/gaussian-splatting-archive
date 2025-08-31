@@ -68,19 +68,6 @@ class CameraInfo_fisheye(NamedTuple):
     is_test: bool = False
 
 
-class CameraInfo_mvg(NamedTuple):
-    uid: int
-    R: np.array
-    T: np.array
-    FovY: np.array
-    FovX: np.array
-    image: np.array
-    image_path: str
-    image_name: str
-    width: int
-    height: int
-
-
 class SceneInfo(NamedTuple):
     point_cloud: BasicPointCloud
     train_cameras: list
@@ -91,14 +78,6 @@ class SceneInfo(NamedTuple):
 
 
 class SceneInfo_fisheye(NamedTuple):
-    point_cloud: BasicPointCloud
-    train_cameras: list
-    test_cameras: list
-    nerf_normalization: dict
-    ply_path: str
-
-
-class SceneInfo_mvg(NamedTuple):
     point_cloud: BasicPointCloud
     train_cameras: list
     test_cameras: list
@@ -206,9 +185,7 @@ def fetchPly_mvg(path):
     plydata = PlyData.read(path)
     vertices = plydata["vertex"]
     positions = np.vstack([vertices["x"], vertices["y"], vertices["z"]]).T
-    # positions = np.vstack([vertices['x'], -vertices['z'], vertices['y']]).T
     colors = np.vstack([vertices["red"], vertices["green"], vertices["blue"]]).T / 255.0
-    # normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
     normals = np.zeros_like(positions)
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
@@ -608,21 +585,16 @@ def readScannetppInfo(args):
     return readColmapSceneInfo_fisheye(args, override_intr)
 
 
-def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
+def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background, images_folder):
     cam_infos = []
 
     with open(os.path.join(path, extrinsicsfile)) as json_file:
         contents = json.load(json_file)
-        # fovx = contents["camera_angle_x"]
-        # fovx = 1.59451063 # 0.8279103882874479
-
-        # fovx = 3.13768641
-
         frames = contents["extrinsics"]
         for idx, frame in enumerate(frames):
             cam_key = frame["key"]
             # cam_name = os.path.join(path, 'images', cam_dict[cam_key])
-            cam_name = os.path.join(path, "fovmaps_fov_1.0_step_3e-3", cam_dict[cam_key])
+            cam_name = os.path.join(path, images_folder, cam_dict[cam_key])
 
             R = np.array(frame["value"]["rotation"]).T
             T = -np.array(frame["value"]["rotation"]) @ np.array(frame["value"]["center"])
@@ -643,13 +615,24 @@ def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
             FovY = 2 * 2 * np.pi / 2  # fovy
             FovX = 2 * 2 * np.pi / 2  # fovx
 
+            focal_length_x = -1.0
+            focal_length_y = -1.0
+            principal_x = -1.0
+            principal_y = -1.0
+            distortion_coeffs = np.array([-1])
+
             cam_infos.append(
-                CameraInfo_mvg(
+                CameraInfo_fisheye(
                     uid=idx,
                     R=R,
                     T=T,
                     FovY=FovY,
                     FovX=FovX,
+                    focal_x=focal_length_x,
+                    focal_y=focal_length_y,
+                    principal_x=principal_x,
+                    principal_y=principal_y,
+                    distortion_coeffs=distortion_coeffs,
                     image=image,
                     image_path=image_path,
                     image_name=image_name,
@@ -661,8 +644,11 @@ def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
     return cam_infos
 
 
-def readOpenMVGInfo(path, white_background, eval):
+def readOpenMVGInfo(args):
     print("Reading Transforms from OpenMVG")
+    path = args.source_path
+    white_background = args.white_background
+    eval = args.eval
 
     my_views = os.path.join(path, "data_views.json")
     camfile_dict = {}
@@ -671,8 +657,13 @@ def readOpenMVGInfo(path, white_background, eval):
         camview_list = json_views["views"]
         for camview in camview_list:
             camfile_dict[camview["key"]] = camview["value"]["ptr_wrapper"]["data"]["filename"]
+    sample_step = args.sample_step
+    sample_step = "{:.0e}".format(sample_step).replace("e-0", "e-")
+    images_folder = f"fovmaps_fov_{args.fov_mod}_step_{sample_step}"
 
-    cam_infos_unsorted = readCamerasFromOpenMVG(path, "data_extrinsics.json", camfile_dict, white_background)
+    cam_infos_unsorted = readCamerasFromOpenMVG(
+        path, "data_extrinsics.json", camfile_dict, white_background, images_folder
+    )
     cam_infos = sorted(cam_infos_unsorted.copy(), key=lambda x: x.image_name)
 
     try:
@@ -714,7 +705,7 @@ def readOpenMVGInfo(path, white_background, eval):
         # storePly(ply_path, xyz, SH2RGB(shs) * 255)
     pcd = fetchPly_mvg(ply_path)
 
-    scene_info = SceneInfo_mvg(
+    scene_info = SceneInfo_fisheye(
         point_cloud=pcd,
         train_cameras=train_cam_infos,
         test_cameras=test_cam_infos,

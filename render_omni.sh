@@ -13,6 +13,7 @@ python render.py -s "$DATASET_DIR" -m $OUTPUT_DIR \
     --sample_step $STEP --fov_mod $FOVMOD \
     --skip_train \
     --mask_path "$DATASET_DIR"fovmaps_fov_"$FOVMOD"_step_"$STEP"/fov_"$FOVMOD"_step_"$STEP"_mask.png \
-    --raymap_path $RAYMAP
+    --raymap_path $RAYMAP \
+    --xi 1.0 \
 
 #python3 extract_fov_360.py --path $OUTPUT_DIR/test/ours_$ITERATIONS --src renders --dst renders_remap --step $STEP

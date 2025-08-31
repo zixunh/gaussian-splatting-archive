@@ -9,7 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-from scene.cameras import Camera, Camera_mvg
+from scene.cameras import Camera
 import numpy as np
 from utils.graphics_utils import fov2focal
 from utils.general_utils import PILtoTorch
@@ -52,15 +52,15 @@ def loadCam(args, id, cam_info, resolution_scale, is_nerf_synthetic, is_test_dat
         )
     else:  # should be a type that converts to float
         if args.resolution == -1:
-            if orig_w > 1600:
+            if orig_w > 4000:
                 global WARNED
                 if not WARNED:
                     print(
-                        "[ INFO ] Encountered quite large input images (>1.6K pixels width), rescaling to 1.6K.\n "
+                        "[ INFO ] Encountered quite large input images (>4K pixels width), rescaling to 4K.\n "
                         "If this is not desired, please explicitly specify '--resolution/-r' as 1"
                     )
                     WARNED = True
-                global_down = orig_w / 1600
+                global_down = orig_w / 4000
             else:
                 global_down = 1
         else:
@@ -68,6 +68,14 @@ def loadCam(args, id, cam_info, resolution_scale, is_nerf_synthetic, is_test_dat
 
         scale = float(global_down) * float(resolution_scale)
         resolution = (int(orig_w / scale), int(orig_h / scale))
+
+    # resized_image_rgb = PILtoTorch(cam_info.image, resolution)
+
+    # gt_image = resized_image_rgb[:3, ...]
+    # loaded_mask = None
+
+    # if resized_image_rgb.shape[1] == 4:
+    #     loaded_mask = resized_image_rgb[3:4, ...]
 
     return Camera(
         resolution,
@@ -92,55 +100,7 @@ def loadCam(args, id, cam_info, resolution_scale, is_nerf_synthetic, is_test_dat
         is_test_dataset=is_test_dataset,
         is_test_view=cam_info.is_test,
         raymap=args.raymap,
-    )
-
-
-def loadCam_mvg(args, id, cam_info, resolution_scale):
-    orig_w, orig_h = cam_info.image.size
-
-    if args.resolution in [1, 2, 4, 8]:
-        resolution = round(orig_w / (resolution_scale * args.resolution)), round(
-            orig_h / (resolution_scale * args.resolution)
-        )
-    else:  # should be a type that converts to float
-        if args.resolution == -1:
-            if orig_w > 4000:
-                global WARNED
-                if not WARNED:
-                    print(
-                        "[ INFO ] Encountered quite large input images (>4K pixels width), rescaling to 4K.\n "
-                        "If this is not desired, please explicitly specify '--resolution/-r' as 1"
-                    )
-                    WARNED = True
-                global_down = orig_w / 4000
-            else:
-                global_down = 1
-        else:
-            global_down = orig_w / args.resolution
-
-        scale = float(global_down) * float(resolution_scale)
-        resolution = (int(orig_w / scale), int(orig_h / scale))
-
-    resized_image_rgb = PILtoTorch(cam_info.image, resolution)
-
-    gt_image = resized_image_rgb[:3, ...]
-    loaded_mask = None
-
-    if resized_image_rgb.shape[1] == 4:
-        loaded_mask = resized_image_rgb[3:4, ...]
-
-    return Camera_mvg(
-        colmap_id=cam_info.uid,
-        R=cam_info.R,
-        T=cam_info.T,
-        FoVx=cam_info.FovX,
-        FoVy=cam_info.FovY,
-        image=gt_image,
-        gt_alpha_mask=loaded_mask,
-        image_name=cam_info.image_name,
-        uid=id,
-        step=args.sample_step,
-        data_device=args.data_device,
+        xi=args.xi,
     )
 
 
@@ -149,15 +109,6 @@ def cameraList_from_camInfos(cam_infos, resolution_scale, args, is_nerf_syntheti
 
     for id, c in enumerate(cam_infos):
         camera_list.append(loadCam(args, id, c, resolution_scale, is_nerf_synthetic, is_test_dataset))
-
-    return camera_list
-
-
-def cameraList_from_camInfos_mvg(cam_infos, resolution_scale, args):
-    camera_list = []
-
-    for id, c in enumerate(cam_infos):
-        camera_list.append(loadCam_mvg(args, id, c, resolution_scale))
 
     return camera_list
 

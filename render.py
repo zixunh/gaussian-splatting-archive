@@ -11,11 +11,11 @@
 
 import time
 import torch
-from scene import Scene, Scene_mvg
+from scene import Scene
 import os
 from tqdm import tqdm
 from os import makedirs
-from gaussian_renderer import render_mvg as render
+from gaussian_renderer import render
 import torchvision
 from utils.general_utils import safe_state
 from argparse import ArgumentParser
@@ -27,7 +27,7 @@ import cv2
 import time
 
 
-def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp):
+def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipeline, background, train_test_exp, xi=-1):
     max_allocated_memory_before = torch.cuda.max_memory_allocated()
     print(f"Max Allocated Memory Before Rendering: {max_allocated_memory_before} bytes")
     torch.cuda.empty_cache()
@@ -52,7 +52,9 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     range_lens = []
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_start = time.time()
-        rendering_pkg = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)
+        rendering_pkg = render(
+            view, gaussians, pipeline, background, use_trained_exp=train_test_exp, render_360_scene=(xi >= 0)
+        )
         render_end = time.time()
 
         rendering = rendering_pkg["render"]
@@ -150,17 +152,20 @@ def render_sets(
     sample_step,
     mask_path,
     raymap_path,
+    xi,
 ):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         dataset.fov_mod = fov_mod
         dataset.sample_step = sample_step
+        dataset.dataset = "OpenMVG"
 
         # Use prepared fisheye grid map by DAC https://github.com/yuliangguo/depth_any_camera
         raymap_fisheye = np.load(raymap_path)
         dataset.raymap = raymap_fisheye
+        dataset.xi = xi
 
-        scene = Scene_mvg(
+        scene = Scene(
             dataset,
             gaussians,
             load_iteration=iteration,
@@ -186,6 +191,7 @@ def render_sets(
                 pipeline,
                 background,
                 dataset.train_test_exp,
+                dataset.xi,
             )
 
         if not skip_test:
@@ -200,6 +206,7 @@ def render_sets(
                 pipeline,
                 background,
                 dataset.train_test_exp,
+                dataset.xi,
             )
 
 
@@ -217,6 +224,7 @@ if __name__ == "__main__":
     parser.add_argument("--raymap_path", type=str, default=None)
     parser.add_argument("--sample_step", type=float, default=None)
     parser.add_argument("--fov_mod", type=float, default=None)
+    parser.add_argument("--xi", type=float, default=-1)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
@@ -233,4 +241,5 @@ if __name__ == "__main__":
         args.sample_step,
         args.mask_path,
         args.raymap_path,
+        args.xi,
     )
