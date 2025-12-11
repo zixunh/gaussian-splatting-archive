@@ -183,9 +183,6 @@ def colmap_main(args):
         cv2.imwrite(str(out_image_path), FOV_image)
 
 
-
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--path', type=str, default="/media/scannetpp/0a5c013435/dslr/")

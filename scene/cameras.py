@@ -23,7 +23,8 @@ class Camera(nn.Module):
                  image_name, uid, step,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
                  train_test_exp = False, is_test_dataset = False, is_test_view = False,
-                 render_camera_model = "KB", raymap = None
+                 render_model = "BEAP", focal_scaling = 1.0, distortion_scaling = 1.0, mirror_shift = 0.0,
+                 raymap = None
                  ):
         super(Camera, self).__init__()
 
@@ -43,19 +44,6 @@ class Camera(nn.Module):
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
 
-        if render_camera_model == "BEAP":
-            self.raymap = None
-        elif render_camera_model == "KB":
-            self.focal_x = focal_x.item()
-            self.focal_y = focal_y.item()
-            self.principal_x = principal_x.item()
-            self.principal_y = principal_y.item()
-            self.distortion_coeffs = torch.from_numpy(distortion_coeffs.astype(np.float32))
-            assert raymap is not None
-            self.raymap = torch.from_numpy(raymap.astype(np.float32)) #self.scannetpp_raymap(raymap, resolution, focal_x, focal_y, FoVx, FoVy, step)
-
-        self.render_camera_model = render_camera_model
-
         resized_image_rgb = PILtoTorch(image, resolution)
         gt_image = resized_image_rgb[:3, ...]
         self.alpha_mask = None
@@ -71,8 +59,6 @@ class Camera(nn.Module):
                 self.alpha_mask[..., self.alpha_mask.shape[-1] // 2:] = 0
 
         self.original_image = gt_image.clamp(0.0, 1.0).to(self.data_device)
-        self.image_width = self.original_image.shape[2]
-        self.image_height = self.original_image.shape[1]
 
         self.invdepthmap = None
         self.depth_reliable = False
@@ -118,6 +104,32 @@ class Camera(nn.Module):
         self.omni_tan_theta = self.omni_map_z(self.tan_theta, cos_theta).float()
         self.omni_tan_phi = self.omni_map_z(self.tan_phi, cos_phi).float()
         self.sampled_image = self.original_image
+
+        self.render_model = 0 if render_model == "BEAP" else 1
+
+        if render_model == "BEAP":
+            self.focal_x = None
+            self.focal_y = None
+            self.principal_x = None
+            self.principal_y = None
+            self.distortion_coeffs = None
+            self.mirror_shift = None
+            self.raymap = None
+            self.image_width = self.tan_theta.shape[0]
+            self.image_height = self.tan_phi.shape[0]
+        elif render_model == "KB" or render_model == "EQ":
+            distortion_scaling = 0.0 if render_model == "EQ" else distortion_scaling
+            self.focal_x = focal_x.item() * focal_scaling
+            self.focal_y = focal_y.item() * focal_scaling
+            self.principal_x = principal_x.item()
+            self.principal_y = principal_y.item()
+            self.distortion_coeffs = torch.from_numpy(distortion_coeffs.astype(np.float32)) * distortion_scaling
+            self.mirror_shift = mirror_shift
+            assert raymap is not None
+            self.raymap = torch.from_numpy(raymap.astype(np.float32)) #self.scannetpp_raymap(raymap, resolution, focal_x, focal_y, FoVx, FoVy, step)
+            self.image_width = self.raymap.shape[1]
+            self.image_height = self.raymap.shape[0]
+
 
     # @staticmethod
     # def scannetpp_raymap(grid_fisheye, resolution, fx, fy, FoVx, FoVy, step):

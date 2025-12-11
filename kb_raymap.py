@@ -5,7 +5,7 @@ from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 from argparse import ArgumentParser
-from scene.colmap_loader import read_intrinsics_binary
+from scene.colmap_loader import read_next_bytes, CAMERA_MODEL_IDS
 
 
 def read_intrinsics_text(path):
@@ -27,16 +27,51 @@ def read_intrinsics_text(path):
                 params = np.array(tuple(map(float, elems[4:])))
     return camera_id, model, width, height, params
 
+
+def read_intrinsics_binary(path_to_model_file):
+    """
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasBinary(const std::string& path)
+        void Reconstruction::ReadCamerasBinary(const std::string& path)
+    """
+    # cameras = {}
+    with open(path_to_model_file, "rb") as fid:
+        num_cameras = read_next_bytes(fid, 8, "Q")[0]
+        # for _ in range(num_cameras):
+        camera_properties = read_next_bytes(
+            fid, num_bytes=24, format_char_sequence="iiQQ")
+        camera_id = camera_properties[0]
+        model_id = camera_properties[1]
+        # model_name = CAMERA_MODEL_IDS[camera_properties[1]].model_name
+        width = camera_properties[2]
+        height = camera_properties[3]
+        num_params = CAMERA_MODEL_IDS[model_id].num_params
+        params = read_next_bytes(fid, num_bytes=8*num_params,
+                                    format_char_sequence="d"*num_params)
+        # cameras[camera_id] = Camera(id=camera_id,
+        #                             model=model_name,
+        #                             width=width,
+        #                             height=height,
+        #                             params=np.array(params))
+        # assert len(cameras) == num_cameras
+    return camera_id, model_id, width, height, params
+
 def focal2halffov2(focal, pixels):
     return pixels / 2 / focal
 
 def colmap_main(args):
     root_dir = args.path
-    camera_dir = Path(root_dir) / "colmap" / "cameras_fish.txt"
-    
-    _, _, width, height, params = read_intrinsics_text(camera_dir)
-    print(params)
-    
+    camera_dir = Path(root_dir) / args.camera_config
+
+    if os.path.exists(camera_dir) and args.camera_config.endswith(".txt"):
+        _, _, width, height, params = read_intrinsics_text(camera_dir)
+        print(params)
+    elif os.path.exists(camera_dir) and args.camera_config.endswith(".bin"):
+        _, _, width, height, params = read_intrinsics_binary(camera_dir)
+        print(params)
+    else:
+        raise ValueError("Camera intrinsics file not found")
+
     # adjust fx, fy, cx, cy by the actual image size
     if args.r == -1:
         ratio = 1.0
@@ -66,7 +101,7 @@ def colmap_main(args):
             grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
             print("WARNING: Grid map file may not match with the camera intrinsic;", grid_map_file)
 
-    grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
+    # grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
     np.save(Path(args.path) / 'raymap_fisheye.npy', grid_fisheye) # only kb ray
 
@@ -106,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument('-r', type=int, default=-1)
 
     parser.add_argument('--path', type=str, default="/media/scannetpp/demo/0a5c013435/dslr/")
+    parser.add_argument('--camera_config', type=str, default="colmap/cameras_fish.txt")
     parser.add_argument('--step', type=float, default=2e-3)
     parser.add_argument('--fov_mod', type=float, default=1.3)
     parser.add_argument('--gridmap_restrict', action='store_true', default=False)

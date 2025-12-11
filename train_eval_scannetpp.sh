@@ -1,15 +1,15 @@
 set -e
 SKIP_TRAIN=true
 
-SCENE_ID=4ef75031e3 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
+SCENE_ID=1f7cbbdde1 #2a1a3afad9 #1f7cbbdde1 4ef75031e3 1d003b07bd
 DATA_ROOT=/media/scannetpp/demo/
 DATASET_DIR=$DATA_ROOT$SCENE_ID/dslr/
 # OUTPUT_DIR=./output_ut_tight/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_ewa/scannetpp/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp_fov0.85/$SCENE_ID
 # OUTPUT_DIR=./output_fov/scannetpp/$SCENE_ID
-OUTPUT_DIR=../../ablation/fsgs_scannetpp/output_fullfov_updated/scannetpp/$SCENE_ID
-# OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
+# OUTPUT_DIR=../../ablation/fsgs_scannetpp/output_fullfov_updated/scannetpp/$SCENE_ID
+OUTPUT_DIR=../../omni-3dgs/output_achive/scannetpp/$SCENE_ID
 # OUTPUT_DIR=../../Fisheye-GS/output_scannetpp_fs_gt/dslr/$SCENE_ID
 
 STEP_TRAIN=0.002
@@ -17,6 +17,9 @@ STEP_EVAL=0.002
 
 FOVMOD_TRAIN=1.3 #0.85 #0.85 #1.0 #1.3 #1.0 #1.3
 FOVMOD_EVAL=2.0 #0.85 #0.85 #1.0 #2.0 #1.0 #2.0
+
+DIST_SCALING=1.0
+RENDER_MODEL=KB
 
 FOVMAP_DIR_TRAIN=undistorted_fovmaps_fov_"$FOVMOD_TRAIN"_step_"$STEP_TRAIN"/
 FOVMAP_DIR_EVAL=undistorted_fovmaps_fov_"$FOVMOD_EVAL"_step_"$STEP_EVAL"/
@@ -48,7 +51,7 @@ else
 fi
 
 # eval
-python prepare_fov.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+python prepare_fov_scannetpp.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
 python kb_raymap.py --path $DATASET_DIR \
                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 # render
@@ -57,23 +60,25 @@ python render.py \
     -s $DATASET_DIR \
     --iteration $ITERS_NUM \
     --camera_model FISHEYE \
+    --render_model $RENDER_MODEL \
+    --distortion_scaling $DIST_SCALING \
     --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
     --raymap_path "$DATASET_DIR"raymap_fisheye.npy \
     --sample_step $STEP_EVAL --fov_mod $FOVMOD_EVAL \
     --train_test_exp \
 
-# wrap back to origianal space
-echo "Ground truth (kb) remapping from FoVMap"
-python extract_kb.py --path $DATASET_DIR \
-                    --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
-                    --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
-                    --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# # wrap back to origianal space
+# echo "Ground truth (kb) remapping from FoVMap"
+# python extract_kb.py --path $DATASET_DIR \
+#                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/gt \
+#                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/gt_remap \
+#                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
-python extract_kb.py --path $DATASET_DIR \
-                     --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
-                     --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
-                     --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
+# python extract_kb.py --path $DATASET_DIR \
+#                      --src $OUTPUT_DIR/test/ours_$ITERS_NUM/renders \
+#                      --dst $OUTPUT_DIR/test/ours_$ITERS_NUM/renders_remap \
+#                      --step $STEP_EVAL --fov_mod $FOVMOD_EVAL --gridmap_restrict
 
 # evaluation
 python metrics.py \
@@ -82,3 +87,12 @@ python metrics.py \
     --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \
             # --custom_gt /home/Fisheye-GS/output_scannetpp_fs_gt/scannetpp_fs/scannetpp/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt_remap \
     #  --use_remap \
+
+
+# # evaluation
+# python metrics.py \
+#     -m /home/Fisheye-GS/output_remapped_gt/aria/$SCENE_ID \
+#     --use_remap \
+#     --iters $ITERS_NUM \
+#     --block_mask \
+#     --custom_gt /home/scannetpp_ever_gt/dslr/$SCENE_ID/test/ours_$ITERS_NUM/gt \

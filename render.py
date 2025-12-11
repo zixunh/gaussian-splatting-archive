@@ -34,9 +34,11 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
 
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+    asso_path = os.path.join(model_path, name, "ours_{}".format(iteration), "asso")
 
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+    makedirs(asso_path, exist_ok=True)
 
     render_times_overall = []
     render_times_prep = []
@@ -76,9 +78,12 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
 
-        masked = range_len.clone()
-        # masked[masked < 10000] = 0   # 小于 2000 的值置为 0
-        torchvision.utils.save_image((masked.reshape(73, 110)[:, :, None].float() / masked.max()).permute(2,0,1), os.path.join('./tmp', '{0:05d}'.format(idx) + "_asso.png"))
+        grid_size = 16
+        grid_w = int((rendering.shape[2] + grid_size - 1) / grid_size)
+        grid_h = int((rendering.shape[1] + grid_size - 1) / grid_size)
+
+        torchvision.utils.save_image((range_len.reshape(grid_h, grid_w)[:, :, None].float() / range_len.max()).permute(2,0,1), \
+                                      os.path.join(asso_path, '{0:05d}'.format(idx) + ".png"))
 
         image_save_end = time.time()
         image_save_times.append((image_save_end - image_save_start)*1000)
@@ -126,15 +131,20 @@ def render_set(model_path, mask_tensor, name, iteration, views, gaussians, pipel
     print(f"  AVG_RenFunc_Time : {means} ms")
 
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, fov_mod, sample_step, mask_path, raymap_path):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, \
+                fov_mod: float, sample_step: float, mask_path: str, render_model: str, \
+                focal_scaling: float, distortion_scaling: float, mirror_shift: float, raymap_path: str):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         dataset.fov_mod = fov_mod
         dataset.sample_step = sample_step
 
-        # Use prepared fisheye grid map by DAC https://github.com/yuliangguo/depth_any_camera
         raymap_fisheye = np.load(raymap_path)
         dataset.raymap = raymap_fisheye
+        dataset.render_model = render_model
+        dataset.focal_scaling = focal_scaling
+        dataset.distortion_scaling = distortion_scaling
+        dataset.mirror_shift = mirror_shift
 
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, skip_train_cameras=skip_train, skip_test_cameras=skip_test)
         valid_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
@@ -161,6 +171,10 @@ if __name__ == "__main__":
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--render_model", type=str, default = 'BEAP')
+    parser.add_argument("--focal_scaling", type=float, default = 1.0)
+    parser.add_argument("--distortion_scaling", type=float, default = 1.0)
+    parser.add_argument("--mirror_shift", type=float, default = 0.0)
     parser.add_argument("--mask_path", type=str, default = None)
     parser.add_argument("--raymap_path", type=str, default = None)
     parser.add_argument("--sample_step", type=float, default = None)
@@ -172,4 +186,5 @@ if __name__ == "__main__":
     safe_state(args.quiet)
 
     render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, \
-                args.fov_mod, args.sample_step, args.mask_path, args.raymap_path)
+                args.fov_mod, args.sample_step, args.mask_path, args.render_model, \
+                args.focal_scaling, args.distortion_scaling, args.mirror_shift, args.raymap_path)

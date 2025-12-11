@@ -1,12 +1,12 @@
 set -e
-SKIP_TRAIN=false
+SKIP_TRAIN=true
 
 # Put the sequences under datasets/zipnerf this folder. For scannetpp, please put the sequences under datasets/scannetpp
 SCENE_ID=berlin
-DATASET_DIR=/home/choyingw/Documents/0221_clone/gaussian-splatting/datasets/zipnerf/$SCENE_ID/
+DATASET_DIR=/media/zipnerf/fisheye/$SCENE_ID/
 OUTPUT_DIR=./output/zipnerf/$SCENE_ID
 
-STEP=2e-3
+STEP=0.002
 FOVMOD_TRAIN=1.3
 FOVMOD_EVAL=2.0
 
@@ -38,8 +38,12 @@ else
      
 
 fi
-# eval
-python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+# # eval
+# python prepare_fov_zipnerf.py --path $DATASET_DIR --dst $FOVMAP_DIR_EVAL --step $STEP --fov_mod $FOVMOD_EVAL --mask_dst $TEST_MASK_FN
+
+python kb_raymap.py --path $DATASET_DIR --camera_config "sparse/0/cameras.bin" \
+                    --step $STEP --fov_mod $FOVMOD_EVAL --gridmap_restrict
+
 # render
 python render.py \
     -m output/zipnerf/$SCENE_ID \
@@ -48,7 +52,9 @@ python render.py \
     --camera_model FISHEYE \
     --skip_train \
     --mask_path $DATASET_DIR$FOVMAP_DIR_EVAL$TEST_MASK_FN \
-    --sample_step $STEP --fov_mod $FOVMOD_EVAL
+    --raymap_path "$DATASET_DIR"raymap_fisheye.npy \
+    --sample_step $STEP --fov_mod $FOVMOD_EVAL \
+    -r 8
 
 # wrap back to origianal space
 python extract_kb_zipnerf.py --path $DATASET_DIR \

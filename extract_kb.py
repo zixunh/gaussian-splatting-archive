@@ -68,9 +68,9 @@ def colmap_main(args):
             grid_fisheye = np.load("./gridmap/scannetpp/grid_fisheye.npy")
             print("WARNING: Grid map file may not match with the camera intrinsic;", grid_map_file)
 
-    grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
+    # grid_isnan = cv2.resize(grid_fisheye[:, :, 3], (width, height), interpolation=cv2.INTER_NEAREST)
     grid_fisheye = cv2.resize(grid_fisheye[:, :, :3], (width, height))
-    grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
+    # grid_fisheye = np.concatenate([grid_fisheye, grid_isnan[:, :, None]], axis=2)
     
     # Reverse warping
     reverse_mapx = np.zeros((width, height), dtype=np.float32)

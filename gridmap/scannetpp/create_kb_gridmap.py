@@ -60,13 +60,15 @@ def chunk(grid):
     return xy
 
 if __name__=="__main__":
-    scannetpp_data_path = '/media/projectaria_tools_aria-scenes_data/scannetpp_formatted/'
+    # scannetpp_data_path = '/media/projectaria_tools_aria-scenes_data/scannetpp_formatted/'
+    # Use prepared fisheye grid map by DAC https://github.com/yuliangguo/depth_any_camera
+    scannetpp_data_path = '/media/scannetpp/demo/'
     target_scene_names = []  # if not empty, only process these scenes
     # target_scene_names = ['1f7cbbdde1', '4ef75031e3']  # if not empty, only process these scenes
     # use half resolution to save memory and speed up
     print(target_scene_names)
-    H = int(1440 / 2)
-    W = int(1440 / 2)
+    H = int(1168 / 2)
+    W = int(1752 / 2)
     # [H, W]
     u, v = np.meshgrid(np.arange(W), np.arange(H))
     # [H*W]
@@ -84,21 +86,22 @@ if __name__=="__main__":
             continue
         
         print(f"Processing {scene_name}")
-        scene_transform_file = os.path.join(scene_dir, 'nerfstudio/transforms.json')
+        scene_transform_file = os.path.join(scene_dir, 'dslr/nerfstudio/transforms.json')
         scene_info = json.load(open(scene_transform_file))
     
         k1 = scene_info['k1']
         k2 = scene_info['k2']
         k3 = scene_info['k3']
         k4 = scene_info['k4']
-        fx = scene_info['fl_x'] / 2
-        fy = scene_info['fl_y'] / 2
+        fx = (scene_info['fl_x'] / 2) #* 0.85
+        fy = (scene_info['fl_y'] / 2) #* 0.85
         cx = scene_info['cx'] / 2
         cy = scene_info['cy'] / 2
             
         map_dist = []
         z_dist = []
         # ATTENTION, the range of ro2 = (x/z)^2 + (y/z)^2 can go beyond 1.0 for fisheye cameras, set it properly
+        # why 15 --> 5 more error?
         for ro in np.linspace(0.0, 15, 500000):
             theta = np.arctan(ro)
             theta_d = theta * (1 + k1*theta*theta + k2*theta**4 + k3*theta**6 + k4*theta**8)
@@ -121,7 +124,7 @@ if __name__=="__main__":
         z[isnan] = 1.
         pcd = torch.cat((xys, z[:, None], isnan[:, None]), dim=1)
         print("saving grid")
-        np.save(os.path.join(scene_dir, 'grid_fisheye.npy'), pcd.detach().cpu().numpy().reshape(H, W, 4))
+        np.save(os.path.join(scene_dir, 'dslr/grid_fisheye.npy'), pcd.detach().cpu().numpy().reshape(H, W, 4))
 
         """
             Treating each ray as a point on an unit sphere, apply forward distortion and project to compute the approximation error using the lookup table
@@ -138,4 +141,4 @@ if __name__=="__main__":
         plt.imshow(error_map)
         print(f'max error: {error_map.max()}')
         # plt.show()
-        plt.savefig(os.path.join(scene_dir, 'error_map.png'))
+        plt.savefig(os.path.join(scene_dir, 'dslr/error_map.png'))
